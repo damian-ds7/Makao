@@ -29,8 +29,3 @@ class Game:
             for player in self.players:
                 card = self._deck.deal()
                 player.add_card_to_deck(card)
-
-
-game = Game(3)
-for player in game._players:
-    print(player.player_info())
