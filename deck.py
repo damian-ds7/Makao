@@ -22,10 +22,3 @@ class Deck:
 
     def deal(self) -> Card:
         return self.cards.pop()
-
-
-deck = Deck()
-print(deck)
-print()
-deck.shuffle()
-print(deck)
