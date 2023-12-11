@@ -4,6 +4,9 @@ from typing import Optional
 
 class HumanPlayer:
     def __init__(self) -> None:
+        """
+        Class representing human player with a deck of cards rank and makao status
+        """
         self._cards: list[Card] = []
         self._rank: Optional[int] = None
         self._makao_status = False
@@ -27,6 +30,9 @@ class HumanPlayer:
 
 class ComputerPlayer(HumanPlayer):
     def __init__(self) -> None:
+        """
+        Class representing computer player with a deck of cards rank and makao status
+        """
         super().__init__()
 
     def player_info(self, human_computer: str = "Computer player") -> str:
