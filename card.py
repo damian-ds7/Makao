@@ -36,10 +36,30 @@ class Card:
         if symbol not in SYMBOLS:
             raise WrongCardSymbol(symbol)
 
-        self.value = value
-        self.symbol = SYMBOLS_UTF_VAL[symbol]
-        self.color = SYMBOLS_COLORS[symbol]
+        self._value = value
+        self._symbol_str = symbol
+        self._symbol = SYMBOLS_UTF_VAL[symbol]
+        self._color = SYMBOLS_COLORS[symbol]
+
+    @property
+    def value(self) -> str:
+        return self._value
+
+    @property
+    def symbol_str(self) -> str:
+        return self._symbol_str
+
+    @property
+    def symbol(self) -> str:
+        return self._symbol
+
+    @property
+    def color(self) -> str:
+        return self._color
 
     def __str__(self):
         reset_color = "\033[0m"
         return f"{self.color}{self.value}{self.symbol}{reset_color}"
+
+    def __repr__(self) -> str:
+        return f"Card('{self.value}', '{self.symbol_str}')"
