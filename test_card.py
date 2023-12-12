@@ -8,6 +8,11 @@ def test_card_value():
     assert card.value == "2"
 
 
+def test_card_value_int():
+    card = Card(2, "clubs")
+    assert card.value == "2"
+
+
 def test_card_symbol_str():
     card = Card("A", "hearts")
     assert card.symbol_str == "hearts"
