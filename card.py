@@ -1,4 +1,5 @@
-from constants import SYMBOLS, SYMBOLS_UTF_VAL, SYMBOLS_COLORS, VALUES
+from constants import SYMBOLS, SYMBOLS_UTF_VAL, SYMBOLS_COLORS, COLOR_TO_ANSI, VALUES
+from typing import Union
 
 
 class WrongCardValue(Exception):
@@ -20,7 +21,7 @@ class WrongCardSymbol(Exception):
 
 
 class Card:
-    def __init__(self, value: str, symbol: str) -> None:
+    def __init__(self, value: Union[str, int], symbol: str) -> None:
         """
         Represents a card from a deck of cards.
 
@@ -31,7 +32,9 @@ class Card:
         :raises WrongCardValue: Is raised if the value is not in the VALUES list
         :raises WrongCardSymbol: Is raised if the symbol is not in the SYMBOLS list
         """
-        if value not in VALUES:
+        if type(value) is int and value in range(2, 11):
+            value = str(value)
+        elif value not in VALUES:
             raise WrongCardValue(value)
         if symbol not in SYMBOLS:
             raise WrongCardSymbol(symbol)
@@ -42,7 +45,7 @@ class Card:
         self._color = SYMBOLS_COLORS[symbol]
 
     @property
-    def value(self) -> str:
+    def value(self) -> Union[str, int]:
         return self._value
 
     @property
@@ -58,8 +61,7 @@ class Card:
         return self._color
 
     def __str__(self):
-        reset_color = "\033[0m"
-        return f"{self.color}{self.value}{self.symbol}{reset_color}"
+        return f"{COLOR_TO_ANSI[self.color]}{self.value}{self.symbol}{COLOR_TO_ANSI['reset']}"
 
     def __repr__(self) -> str:
         return f"Card('{self.value}', '{self.symbol_str}')"
