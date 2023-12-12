@@ -7,8 +7,15 @@ SYMBOLS_UTF_VAL: dict[str, str] = {
     "hearts": "\u2665",
 }
 SYMBOLS_COLORS: dict[str, str] = {
-    "clubs": "\033[97m",
-    "spades": "\033[97m",
-    "diamonds": "\033[31m",
-    "hearts": "\033[31m",
+    "clubs": "black",
+    "spades": "black",
+    "diamonds": "red",
+    "hearts": "red"
+}
+COLOR_TO_ANSI: dict[str, str] = {
+    "black": "\033[97m",
+    "black": "\033[97m",
+    "red": "\033[31m",
+    "red": "\033[31m",
+    "reset": "\033[0m"
 }
