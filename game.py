@@ -1,7 +1,7 @@
 from deck import Deck
 from players import HumanPlayer, ComputerPlayer
 import pygame as pg
-from pygame import Rect, image
+from pygame import Rect, Surface, image
 from typing import Union
 
 
@@ -31,10 +31,6 @@ class Game:
         except ValueError:
             raise WrongPlayerNumber(player_number)
 
-        self._human_player: HumanPlayer = HumanPlayer()
-        self._computer_players: list[ComputerPlayer] = [
-            ComputerPlayer() for _ in range(player_number - 1)
-        ]
         self._players: list[Union[HumanPlayer, ComputerPlayer]] = [HumanPlayer()] + [
             ComputerPlayer() for _ in range(player_number - 1)
         ]
@@ -50,14 +46,6 @@ class Game:
         self.background_color = (34, 139, 34)
         self._card_width, self._card_height = image.load("images/hidden.png").get_size()
         self.window = pg.display.set_mode((self.window_width, self.window_height))
-
-    @property
-    def computer_players(self) -> list[ComputerPlayer]:
-        return self._computer_players
-
-    @property
-    def human_player(self) -> HumanPlayer:
-        return self._human_player
 
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
@@ -84,10 +72,8 @@ class Game:
         return self._card_height
 
     def deal(self) -> None:
-        # players = self.computer_players + [self.human_player]
-        players = self.players
         for _ in range(5):
-            for player in players:
+            for player in self.players:
                 player.draw_card(self.deck)
 
     def start(self) -> None:
@@ -117,9 +103,9 @@ class Game:
         self.window.blit(card_image, (x, y))
 
     def render_computer_players(self, player: ComputerPlayer) -> None:
-        hidden_card_image = image.load("images/hidden.png")
-        padding = 10
-        position: int = self.computer_players.index(player)
+        hidden_card_image: Surface = image.load("images/hidden.png")
+        padding: int = 10
+        position: int = self.players.index(player)
         total_width: int = (
             len(self.human_player.hand) * (self.card_width // 2) + self.card_width // 2
         )
@@ -142,7 +128,7 @@ class Game:
             hidden_card_image = pg.transform.rotate(hidden_card_image, 90)
 
         for i, card in enumerate(player.hand):
-            if position == 0:
+            if position == 1:
                 x = start_x + i * (self.card_width // 2)
             else:
                 y = start_y + i * (self.card_height // 2)
@@ -152,11 +138,11 @@ class Game:
         self._human_card_rects = []
         padding = 10
         total_width: int = (
-            len(self.human_player.hand) * (self.card_width // 2) + self.card_width // 2
+            len(self.players[0].hand) * (self.card_width // 2) + self.card_width // 2
         )
         start_x = (self.window_width - total_width) // 2
         y: int = self.window_height - self.card_height - padding
-        for i, card in enumerate(self.human_player.hand):
+        for i, card in enumerate(self.players[0].hand):
             x = start_x + i * (self.card_width // 2)
             card_image = image.load(card.get_image_name())
             self.window.blit(card_image, (x, y))
