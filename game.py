@@ -107,7 +107,7 @@ class Game:
         padding: int = 10
         position: int = self.players.index(player)
         total_width: int = (
-            len(self.human_player.hand) * (self.card_width // 2) + self.card_width // 2
+            len(self.players[0].hand) * (self.card_width // 2) + self.card_width // 2
         )
         if position == 1:
             y = padding
@@ -153,7 +153,7 @@ class Game:
         for i in reversed(range(len(self.human_card_rects))):
             if self.human_card_rects[i].collidepoint(x, y):
                 # A card was clicked! Do something with the card.
-                clicked_card = self.human_player.hand[i]
+                clicked_card = self.players[0].hand[i]
                 print(f"You clicked on {clicked_card}")
                 break
 
