@@ -38,10 +38,10 @@ Depending on what you are making, it can be a good idea to include screenshots o
 1. Clone the repository: `git clone https://gitlab-stud.elka.pw.edu.pl/ddsouza/makao-projekt-pipr-damian-dsouza`
 2. Navigate to the project directory: `cd makao-projekt-pipr-damian-dsouza`
 3. Create a venv and activate it:
-    Linux:
+    -Linux:
         - `python3 -m venv venv`
         - `source venv/bin/activate`
-    Windows:
+    -Windows:
         - `python -m venv venv`
         - `venv\Scripts\activate`
 4. Install the required packages: `pip install -r requirements.txt`
