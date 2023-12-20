@@ -1,3 +1,4 @@
+from curses import start_color
 from deck import Deck
 from players import HumanPlayer, ComputerPlayer
 import pygame as pg
@@ -5,7 +6,21 @@ from pygame import Rect, Surface, image
 from typing import Union
 
 
-class WrongPlayerNumber(Exception):
+class WrongCoord(ValueError):
+    def __init__(
+        self, coord: str, message: str = "Coord must be either x or y"
+    ) -> None:
+        super().__init__(message, coord)
+
+
+class WrongPosition(ValueError):
+    def __init__(
+        self, position: int, message: str = "Position must be a number between 0 and 3"
+    ) -> None:
+        super().__init__(message, position)
+
+
+class WrongPlayerNumber(ValueError):
     def __init__(
         self,
         player_number,
@@ -72,7 +87,7 @@ class Game:
         return self._card_height
 
     def deal(self) -> None:
-        for _ in range(5):
+        for _ in range(13):
             for player in self.players:
                 player.draw_card(self.deck)
 
@@ -86,12 +101,19 @@ class Game:
                         continue
                     x, y = pg.mouse.get_pos()
                     self.check_card_click(x, y)
+                elif event.type == pg.VIDEORESIZE:
+                    width, height = event.size
+                    if width < 900 or height < 700:
+                        self.window_width, self.window_height = 900, 700
+                    else:
+                        self.window_width, self.window_height = width, height
+                    self.window = pg.display.set_mode(
+                        (self.window_width, self.window_height), pg.RESIZABLE
+                    )
 
             self.window.fill(self.background_color)
-            self.render_human_player_cards()
-            for computer in self.players[1:]:
-                if isinstance(computer, ComputerPlayer):
-                    self.render_computer_players(computer)
+            for player in self.players:
+                self.render_cards(player)
             pg.display.flip()
 
         pg.quit()
@@ -102,61 +124,122 @@ class Game:
         y: int = (self.window_height - self.card_height) // 2
         self.window.blit(card_image, (x, y))
 
-    def render_computer_players(self, player: ComputerPlayer) -> None:
+    def render_cards(self, player: Union[ComputerPlayer, HumanPlayer]) -> None:
+        """
+        Renders players cards based on their number:
+            0 - Human, bottom, visible cards
+            1 - Computer, top
+            2 - Computer, left
+            3 - Computer, right
+        All computers' cards are rendered upside down
+
+        :param player: Player object from list of players
+        :type player: Union[ComputerPlayer, HumanPlayer]
+        :raises WrongPosition: When wrong index is given
+        """
         hidden_card_image: Surface = image.load("images/hidden.png")
         padding: int = 10
         position: int = self.players.index(player)
         total_width: int = (
-            len(self.players[0].hand) * (self.card_width // 2) + self.card_width // 2
+            len(player.hand) * (self.card_width // 2) + self.card_width // 2
         )
-        if position == 1:
-            y = padding
-            start_x = (
-                self.window_height - len(player.hand) * (self.card_width // 2)
-            ) // 2
-        elif position == 2:
-            x = padding
-            start_y = (
-                self.window_height - len(player.hand) * (self.card_height // 2)
-            ) // 2
+        cards_per_row: int = 10
+        allowed_width: int = (
+            cards_per_row * (self.card_width // 2) + self.card_width // 2
+        )
+        max_total_width: int = (
+            len(player.hand) * (self.card_width // 2) + self.card_width // 2
+        )
+        position_dict: dict[int, dict] = {
+            0: {
+                "start_coord": "x",
+                "fixed_coord": self.window_height - self.card_height - padding,
+                "rotate": False,
+            },
+            1: {
+                "start_coord": "x",
+                "fixed_coord": padding,
+                "rotate": False
+            },
+            2: {
+                "start_coord": "y",
+                "fixed_coord": padding,
+                "rotate": True
+            },
+            3: {
+                "start_coord": "y",
+                "fixed_coord": self.window_width - self.card_height - padding,
+                "rotate": True,
+            },
+        }
+
+        if not 0 <= position <= 3:
+            raise WrongPosition(position)
+
+        def adjust_total_width(total_width: int, allowed_width: int) -> int:
+            return allowed_width if total_width > allowed_width else total_width
+
+        def calculate_start_coord(coord: str, total_width: int) -> int:
+            coord = coord.lower()
+            if not (coord == "x" or coord == "y"):
+                raise WrongCoord(coord)
+
+            if coord == "x":
+                return (self.window_width - total_width) // 2
+            else:
+                return (self.window_height - total_width) // 2
+
+        def shift_coord(coord: int, index: int) -> int:
+            return coord + index * (self.card_width // 2)
+
+        total_width = adjust_total_width(max_total_width, allowed_width)
+        max_total_width -= total_width
+
+        start_coord: int = calculate_start_coord(position_dict[position]["start_coord"], total_width)
+        fixed_coord: int = position_dict[position]["fixed_coord"]
+        if position_dict[position]["rotate"]:
             hidden_card_image = pg.transform.rotate(hidden_card_image, 90)
-        elif position == 3:
-            x = self.window_width - self.card_width - padding
-            start_y = (
-                self.window_height - len(player.hand) * (self.card_height // 2)
-            ) // 2
-            hidden_card_image = pg.transform.rotate(hidden_card_image, 90)
+
+        if position in [0, 1]:
+            start_x = start_coord
+            y = fixed_coord
+        else:
+            start_y = start_coord
+            x = fixed_coord
 
         for i, card in enumerate(player.hand):
-            if position == 1:
-                x = start_x + i * (self.card_width // 2)
-            else:
-                y = start_y + i * (self.card_height // 2)
-            self.window.blit(hidden_card_image, (x, y))
+            if i != 0 and i % cards_per_row == 0:
+                total_width = adjust_total_width(max_total_width, allowed_width)
+                max_total_width -= total_width
+                start_coord = calculate_start_coord(position_dict[position]["start_coord"], total_width)
+                if position in [0, 1]:
+                    start_x = start_coord
+                    y = y + -(-1) ** position * (self.card_height + padding)
+                else:
+                    start_y = start_coord
+                    y = y + (-1) ** (position - 2) * (self.card_height + padding)
 
-    def render_human_player_cards(self) -> None:
-        self._human_card_rects = []
-        padding = 10
-        total_width: int = (
-            len(self.players[0].hand) * (self.card_width // 2) + self.card_width // 2
-        )
-        start_x = (self.window_width - total_width) // 2
-        y: int = self.window_height - self.card_height - padding
-        for i, card in enumerate(self.players[0].hand):
-            x = start_x + i * (self.card_width // 2)
-            card_image = image.load(card.get_image_name())
-            self.window.blit(card_image, (x, y))
-            card_rect = Rect(x, y, self.card_width, self.card_height)
-            self._human_card_rects.append(card_rect)
+            if position == 0:
+                x = shift_coord(start_x, i % 10)
+                card_image = image.load(card.get_image_name())
+                self.window.blit(card_image, (x, y))
+                card_rect = Rect(x, y, self.card_width, self.card_height)
+                self._human_card_rects.append(card_rect)
+            else:
+                if position == 1:
+                    x = shift_coord(start_x, i)
+                else:
+                    y = shift_coord(start_y, i)
+                self.window.blit(hidden_card_image, (x, y))
 
     def check_card_click(self, x: int, y: int) -> None:
-        for i in reversed(range(len(self.human_card_rects))):
-            if self.human_card_rects[i].collidepoint(x, y):
-                # A card was clicked! Do something with the card.
-                clicked_card = self.players[0].hand[i]
+        rect_cards = list(zip(self.human_card_rects, self.players[0].hand))
+        for rect, card in reversed(rect_cards):
+            if rect.collidepoint(x, y):
+                clicked_card = card
                 print(f"You clicked on {clicked_card}")
                 break
 
 
-game = Game(4)
+game = Game(2)
 game.start()
