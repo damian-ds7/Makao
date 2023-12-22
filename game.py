@@ -49,16 +49,17 @@ class Game:
             ComputerPlayer() for _ in range(player_number - 1)
         ]
         self._deck: Deck = Deck()
+        self.current_card = self.deck.deal()
         self.deal()
         self._game_over = False
-        self.current_card = self.deck.deal()
+
         self._human_card_rects: list[Rect] = []
 
         pg.init()
-        self.min_width = 900
-        self.min_height = 760
-        self.window_width = 900
-        self.window_height = 760
+        self.min_width = 1050
+        self.min_height = 800
+        self.window_width = 1050
+        self.window_height = 800
         self.background_color = (34, 139, 34)
         self._card_width, self._card_height = image.load("images/hidden.png").get_size()
         self.window = pg.display.set_mode((self.window_width, self.window_height))
@@ -105,7 +106,10 @@ class Game:
                 elif event.type == pg.VIDEORESIZE:
                     width, height = event.size
                     if width < 900 or height < self.min_height:
-                        self.window_width, self.window_height = 900, 700
+                        self.window_width, self.window_height = (
+                            self.min_width,
+                            self.min_height,
+                        )
                     else:
                         self.window_width, self.window_height = width, height
                     self.window = pg.display.set_mode(
