@@ -12,6 +12,14 @@ class CardAlreadyInDeckError(Exception):
         super().__init__(message, repr(card))
 
 
+class DeckAlreadyEmptyError(IndexError):
+    def __init__(
+        self,
+        message: str = "The deck is already empty, cannot draw card",
+    ) -> None:
+        super().__init__(message)
+
+
 class Deck:
     def __init__(self, empty: bool = False, shuffle: bool = True):
         """
@@ -41,4 +49,7 @@ class Deck:
         shuffle(self.deck)
 
     def deal(self) -> Card:
-        return self.deck.pop()
+        try:
+            return self.deck.pop()
+        except IndexError:
+            raise DeckAlreadyEmptyError
