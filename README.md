@@ -21,7 +21,7 @@ Each player is dealt five cards at the start of the game. The remaining cards fo
 
 - **4♠ 4♥ 4♣ 4◆**: the next player skips one turn. To defend against this, you must play another four, then the number of skipped turns accumulates and affects the next player in line. Functional cards do not work on a blocked player (the effect is applied to the next player in line).
 
-- **W♠ W♥ W♣ W◆**: the player can request cards based on their face value (only non-functional cards). It is not allowed to play a queen using the rule "queen for everything, everything for the queen." The request for a specific card by a jack applies for the entire subsequent turn (including the player who played the jack) and can only be changed by playing another jack (overriding the request to a different card or not requesting any card).
+- **W♠ W♥ W♣ W◆ (J♠ J♥ J♣ J◆)**: the player can request cards based on their face value (only non-functional cards). It is not allowed to play a queen using the rule "queen for everything, everything for the queen." The request for a specific card by a jack applies for the entire subsequent turn (including the player who played the jack) and can only be changed by playing another jack (overriding the request to a different card or not requesting any card).
 
 - **D♠ D♥ D♣ D◆**: the "queen for everything, everything for the queen" rule means the possibility of laying down a queen on any card, regardless of color and value (sometimes: unless the card prevents it because it is functional) and placing any card on a laid queen. Additionally, in some versions, the rule D♠ (or also D♥) applies, preventing the action of biting kings or all functional cards.
 
