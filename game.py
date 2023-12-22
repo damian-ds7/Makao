@@ -49,20 +49,20 @@ class Game:
             ComputerPlayer() for _ in range(player_number - 1)
         ]
         self._deck: Deck = Deck()
-        self.current_card = self.deck.deal()
+        self._current_card = self._deck.deal()
         self.deal()
         self._game_over = False
 
         self._human_card_rects: list[Rect] = []
 
         pg.init()
-        self.min_width = 1050
-        self.min_height = 800
-        self.window_width = 1050
-        self.window_height = 800
-        self.background_color = (34, 139, 34)
+        self._min_width: int = 1050
+        self._min_height: int = 800
+        self._window_width: int = 1050
+        self._window_height: int = 800
+        self._background_color: tuple = (34, 139, 34)
         self._card_width, self._card_height = image.load("images/hidden.png").get_size()
-        self.window = pg.display.set_mode((self.window_width, self.window_height))
+        self._window: Surface = pg.display.set_mode((self._window_width, self._window_height))
 
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
@@ -88,6 +88,26 @@ class Game:
     def card_height(self) -> int:
         return self._card_height
 
+    @property
+    def window_width(self) -> int:
+        return self._window_width
+
+    @property
+    def window_height(self) -> int:
+        return self._window_height
+
+    @property
+    def min_width(self) -> int:
+        return self._min_width
+
+    @property
+    def min_height(self) -> int:
+        return self._min_height
+
+    @property
+    def background_color(self) -> Tuple[int, int, int]:
+        return self._background_color
+
     def deal(self, starting_cards: int = 5) -> None:
         # TODO: reshuffling the deck when it's empty
         for _ in range(starting_cards):
@@ -107,17 +127,17 @@ class Game:
                 elif event.type == pg.VIDEORESIZE:
                     width, height = event.size
                     if width < 900 or height < self.min_height:
-                        self.window_width, self.window_height = (
+                        self._window_width, self._window_height = (
                             self.min_width,
                             self.min_height,
                         )
                     else:
-                        self.window_width, self.window_height = width, height
-                    self.window = pg.display.set_mode(
+                        self._window_width, self._window_height = width, height
+                    self._window = pg.display.set_mode(
                         (self.window_width, self.window_height), pg.RESIZABLE
                     )
 
-            self.window.fill(self.background_color)
+            self._window.fill(self.background_color)
             self.render_center_card()
             for player in self.players:
                 self.render_cards(player)
@@ -126,10 +146,10 @@ class Game:
         pg.quit()
 
     def render_center_card(self) -> None:
-        card_image: Surface = image.load(self.current_card.get_image_name())
+        card_image: Surface = image.load(self._current_card.get_image_name())
         x: int = (self.window_width - self.card_width) // 2
         y: int = (self.window_height - self.card_height) // 2
-        self.window.blit(card_image, (x, y))
+        self._window.blit(card_image, (x, y))
 
     def render_cards(self, player: Union[ComputerPlayer, HumanPlayer]) -> None:
         """
@@ -285,7 +305,7 @@ class Game:
                 else:
                     y = shift_coord(start_y, i)
 
-            self.window.blit(card_image, (x, y))
+            self._window.blit(card_image, (x, y))
 
     def check_card_click(self, x: int, y: int) -> None:
         rect_cards = list(zip(self.human_card_rects, self.players[0].hand))
