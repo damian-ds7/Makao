@@ -29,6 +29,12 @@ class WrongPlayerNumber(ValueError):
 
 
 class Game:
+    # TODO:
+    # - Macao button
+    # - Next button
+    # - (Optional) Stop Macao button
+    # - Click handling
+    # - New window for value / color selection window after function cards are played
     def __init__(self, player_number: int) -> None:
         """
         Represents game
@@ -62,7 +68,9 @@ class Game:
         self._window_height: int = 800
         self._background_color: tuple = (34, 139, 34)
         self._card_width, self._card_height = image.load("images/hidden.png").get_size()
-        self._window: Surface = pg.display.set_mode((self._window_width, self._window_height))
+        self._window: Surface = pg.display.set_mode(
+            (self._window_width, self._window_height)
+        )
 
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
@@ -182,6 +190,9 @@ class Game:
             index %= cards_per_row
             return coord + index * (card_width // 2)
 
+        def calculate_total_width(card_width: int, num_rows: int) -> int:
+            return len(player.hand) * (card_width // 2) + num_rows * card_width // 2
+
         def scale_card(
             card_width: int,
             card_height: int,
@@ -189,12 +200,12 @@ class Game:
             max_total_width: int,
             allowed_width: int,
             num_rows: int,
-        ) -> Tuple[int, int, int, int]:
+        ) -> Tuple[int, int, int, int, int]:
             """
             Based on total width modifies number of cards in row, card width and height
             """
             if not num_rows > 3:
-                return card_width, card_height, cards_per_row, max_total_width
+                return card_width, card_height, cards_per_row, max_total_width, num_rows
 
             num_rows = 3
             cards_per_row = len(player.hand) // num_rows
@@ -205,10 +216,8 @@ class Game:
             )
             card_width = int(card_width * scale_factor)
             card_height = int(card_height * scale_factor)
-            max_total_width = (
-                len(player.hand) * (card_width // 2) + num_rows * card_width // 2
-            )
-            return card_width, card_height, cards_per_row, max_total_width
+            max_total_width = calculate_total_width(card_width, num_rows)
+            return card_width, card_height, cards_per_row, max_total_width, num_rows
 
         def load_scale_image(
             card_height: int, card_width: int, path: str = "images/hidden.png"
@@ -231,11 +240,9 @@ class Game:
             num_rows += 1
 
         allowed_width: int = cards_per_row * (card_width // 2) + card_width // 2
-        max_total_width: int = (
-            len(player.hand) * (card_width // 2) + num_rows * card_width // 2
-        )
+        max_total_width: int = calculate_total_width(card_width, num_rows)
 
-        card_width, card_height, cards_per_row, max_total_width = scale_card(
+        card_width, card_height, cards_per_row, max_total_width, num_rows = scale_card(
             card_width,
             card_height,
             cards_per_row,
