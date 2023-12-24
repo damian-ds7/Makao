@@ -1,8 +1,9 @@
-from deck import Deck
+from card import Card
+from deck import Deck, DeckAlreadyEmptyError
 from players import HumanPlayer, ComputerPlayer
 import pygame as pg
-from pygame import Rect, Surface, image
-from typing import Union, Tuple
+from pygame import Rect, Surface, image, font
+from typing import Callable, Optional, Union
 
 
 class WrongCoord(ValueError):
@@ -55,22 +56,28 @@ class Game:
             ComputerPlayer() for _ in range(player_number - 1)
         ]
         self._deck: Deck = Deck()
+        self._discarded_deck: Deck = Deck(empty=True)
+        for _ in range(5):
+            for player in self._players:
+                self.take_cards(player)
         self._current_card = self._deck.deal()
-        self.deal()
         self._game_over = False
 
-        self._human_card_rects: list[Rect] = []
-
+        self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
         self._min_width: int = 1050
         self._min_height: int = 800
         self._window_width: int = 1050
         self._window_height: int = 800
-        self._background_color: tuple = (34, 139, 34)
+        self._background_color: tuple[int, int, int] = (34, 139, 34)
+        self._text_color: tuple[int, int, int] = (0, 0, 0)
+        self._font: font.Font = font.Font(None, 30)
         self._card_width, self._card_height = image.load("images/hidden.png").get_size()
         self._window: Surface = pg.display.set_mode(
             (self._window_width, self._window_height)
         )
+
+        self.render_buttons()
 
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
@@ -81,12 +88,16 @@ class Game:
         return self._deck
 
     @property
+    def discarded_deck(self) -> Deck:
+        return self._discarded_deck
+
+    @property
     def game_over(self) -> bool:
         return self._game_over
 
     @property
     def human_card_rects(self) -> list[Rect]:
-        return self._human_card_rects
+        return self._game_rects["human_cards"]
 
     @property
     def card_width(self) -> int:
@@ -113,28 +124,70 @@ class Game:
         return self._min_height
 
     @property
-    def background_color(self) -> Tuple[int, int, int]:
+    def background_color(self) -> tuple[int, int, int]:
         return self._background_color
 
-    def deal(self, starting_cards: int = 5) -> None:
-        # TODO: reshuffling the deck when it's empty
-        for _ in range(starting_cards):
-            for player in self.players:
-                player.draw_card(self.deck)
+    @property
+    def text_color(self) -> tuple[int, int, int]:
+        return self._text_color
+
+    @property
+    def font(self) -> font.Font:
+        return self._font
+
+    def take_cards(
+        self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
+    ) -> None:
+        try:
+            player.draw_card(self.deck, number)
+        except DeckAlreadyEmptyError:
+            self.discarded_deck.shuffle()
+            self._deck = self.discarded_deck
+            self._discarded_deck = Deck(empty=True)
+
+    def macao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        pass
+
+    def next_turn(self) -> None:
+        pass
+
+    def play_card(
+        self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
+    ) -> None:
+        if self._current_card.can_play(played_card):
+            self.discarded_deck.add_card(self._current_card)
+            self._current_card = played_card
+            player.remove_card(played_card)
+
+    def check_card_click(self, mouse_pos: tuple[int, int]) -> Optional[Card]:
+        rect_cards = list(zip(self.human_card_rects, self.players[0].hand))
+        for rect, card in reversed(rect_cards):
+            if rect.collidepoint(mouse_pos):
+                return card
+        return None
 
     def start(self) -> None:
         while not self.game_over:
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     self._game_over = True
+
                 if event.type == pg.MOUSEBUTTONDOWN:
                     if pg.mouse.get_pressed()[2]:
                         continue
-                    x, y = pg.mouse.get_pos()
-                    self.check_card_click(x, y)
+                    mouse_pos: tuple[int, int] = pg.mouse.get_pos()
+                    self._game_rects["buttons"][0].click(mouse_pos)
+
+                    if played_card := self.check_card_click(mouse_pos):
+                        print(
+                            f"Current card: {self._current_card}      Played card:"
+                            f" {played_card}"
+                        )
+                        self.play_card(played_card, self.players[0])
+
                 elif event.type == pg.VIDEORESIZE:
                     width, height = event.size
-                    if width < 900 or height < self.min_height:
+                    if width < self.min_height or height < self.min_height:
                         self._window_width, self._window_height = (
                             self.min_width,
                             self.min_height,
@@ -144,20 +197,51 @@ class Game:
                     self._window = pg.display.set_mode(
                         (self.window_width, self.window_height), pg.RESIZABLE
                     )
-
             self._window.fill(self.background_color)
-            self.render_center_card()
+            self.render_center_cards()
             for player in self.players:
                 self.render_cards(player)
             pg.display.flip()
 
         pg.quit()
 
-    def render_center_card(self) -> None:
+    def render_buttons(self) -> None:
+        # @TODO: add next and macao buttons
+        """
+        Renders clickable buttons: Deck to draw cards, Macao! and Next Buttons
+        """
+        x: int = (self.window_width - self.card_width) // 2 + self.card_width + 5
+        y: int = (self.window_height - self.card_height) // 2
+        button = Button(
+            x,
+            y,
+            effect=lambda: self.take_cards(self.players[0]),
+            width=self.card_width,
+            height=self.card_height,
+        )
+        self._game_rects["buttons"].append(button)
+
+    def render_center_cards(self) -> None:
+        """
+        Renders current center card and hidden deck of cards that player can draw from
+        """
         card_image: Surface = image.load(self._current_card.get_image_name())
         x: int = (self.window_width - self.card_width) // 2
         y: int = (self.window_height - self.card_height) // 2
         self._window.blit(card_image, (x, y))
+
+        card_image = image.load("images/hidden.png")
+        x += self.card_width + 5
+        self._window.blit(card_image, (x, y))
+
+        text: Surface = self.font.render(str(len(self.deck)), True, self.text_color)
+        text_width: int
+        text_height: int
+        text_width, text_height = text.get_size()
+        text_x = x + (self.card_width - text_width) // 2
+        text_y = y + (self.card_height - text_height) // 2
+
+        self._window.blit(text, (text_x, text_y))
 
     def render_cards(self, player: Union[ComputerPlayer, HumanPlayer]) -> None:
         """
@@ -200,7 +284,7 @@ class Game:
             max_total_width: int,
             allowed_width: int,
             num_rows: int,
-        ) -> Tuple[int, int, int, int, int]:
+        ) -> tuple[int, int, int, int, int]:
             """
             Based on total width modifies number of cards in row, card width and height
             """
@@ -267,6 +351,8 @@ class Game:
 
         if position != 0:
             card_image: Surface = load_scale_image(card_height, card_width)
+        else:
+            self._game_rects["human_cards"] = []
 
         total_width = min(max_total_width, allowed_width)
         max_total_width -= total_width
@@ -304,8 +390,8 @@ class Game:
                 card_image = load_scale_image(
                     card_height, card_width, card.get_image_name()
                 )
-                card_rect = Rect(x, y, card_width, card_height)
-                self._human_card_rects.append(card_rect)
+                card_rect: Rect = Rect(x, y, card_width, card_height)
+                self._game_rects["human_cards"].append(card_rect)
             else:
                 if position == 1:
                     x = shift_coord(start_x, i)
@@ -314,15 +400,19 @@ class Game:
 
             self._window.blit(card_image, (x, y))
 
-    def check_card_click(self, x: int, y: int) -> None:
-        rect_cards = list(zip(self.human_card_rects, self.players[0].hand))
-        for rect, card in reversed(rect_cards):
-            if rect.collidepoint(x, y):
-                clicked_card = card
-                print(f"You clicked on {clicked_card}")
-                break
+
+class Button:
+    def __init__(
+        self, x: int, y: int, effect: Callable, width: int = 75, height: int = 75
+    ) -> None:
+        self.rect: Rect = Rect(x, y, width, height)
+        self.effect: Callable = effect
+
+    def click(self, mouse_pos: tuple[int, int]) -> None:
+        if self.rect.collidepoint(mouse_pos):
+            self.effect()
 
 
 if __name__ == "__main__":
-    game = Game(2)
+    game = Game(4)
     game.start()
