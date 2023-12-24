@@ -36,6 +36,9 @@ class HumanPlayer:
         for _ in range(number):
             self._hand.append(deck.deal())
 
+    def remove_card(self, card: Card) -> None:
+        self.hand.remove(card)
+
     def player_info(self, human_computer: str = "Human player") -> tuple:
         cards: str = " ".join([str(card) for card in self.hand])
         return (
