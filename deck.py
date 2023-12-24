@@ -53,3 +53,6 @@ class Deck:
             return self.deck.pop()
         except IndexError:
             raise DeckAlreadyEmptyError
+
+    def __len__(self) -> int:
+        return len(self.deck)
