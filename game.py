@@ -29,6 +29,23 @@ class WrongPlayerNumber(ValueError):
         super().__init__(message, player_number)
 
 
+class Button:
+    def __init__(
+        self, x: int, y: int, effect: Callable, width: int = 75, height: int = 75
+    ) -> None:
+        self.rect: Rect = Rect(x, y, width, height)
+        self._effect: Callable = effect
+
+    @property
+    def effect(self) -> Callable:
+        return self._effect
+
+    def check_click(self, mouse_pos: tuple[int, int]) -> bool:
+        if self.rect.collidepoint(mouse_pos):
+            return True
+        return False
+
+
 class Game:
     # TODO:
     # - Macao button
@@ -77,8 +94,6 @@ class Game:
             (self._window_width, self._window_height)
         )
 
-        self.render_buttons()
-
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
         return self._players
@@ -106,6 +121,10 @@ class Game:
     @property
     def card_height(self) -> int:
         return self._card_height
+
+    @property
+    def window(self) -> Surface:
+        return self._window
 
     @property
     def window_width(self) -> int:
@@ -141,15 +160,18 @@ class Game:
         try:
             player.draw_card(self.deck, number)
         except DeckAlreadyEmptyError:
+            if not self.discarded_deck:
+                return
             self.discarded_deck.shuffle()
             self._deck = self.discarded_deck
             self._discarded_deck = Deck(empty=True)
+            player.draw_card(self.deck, number)
 
     def macao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
-        pass
+        print("clicked macao")
 
-    def next_turn(self) -> None:
-        pass
+    def next_turn(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        print("clicked next")
 
     def play_card(
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
@@ -166,6 +188,12 @@ class Game:
                 return card
         return None
 
+    def check_button_click(self, mouse_pos: tuple[int, int]) -> Optional[Button]:
+        for button in self._game_rects["buttons"]:
+            if button.check_click(mouse_pos):
+                return button
+        return None
+
     def start(self) -> None:
         while not self.game_over:
             for event in pg.event.get():
@@ -176,9 +204,9 @@ class Game:
                     if pg.mouse.get_pressed()[2]:
                         continue
                     mouse_pos: tuple[int, int] = pg.mouse.get_pos()
-                    self._game_rects["buttons"][0].click(mouse_pos)
-
-                    if played_card := self.check_card_click(mouse_pos):
+                    if clicked_button := self.check_button_click(mouse_pos):
+                        clicked_button.effect(self.players[0])
+                    elif played_card := self.check_card_click(mouse_pos):
                         print(
                             f"Current card: {self._current_card}      Played card:"
                             f" {played_card}"
@@ -197,8 +225,9 @@ class Game:
                     self._window = pg.display.set_mode(
                         (self.window_width, self.window_height), pg.RESIZABLE
                     )
-            self._window.fill(self.background_color)
-            self.render_center_cards()
+            self.window.fill(self.background_color)
+            self.render_center_card()
+            self.render_buttons()
             for player in self.players:
                 self.render_cards(player)
             pg.display.flip()
@@ -206,42 +235,63 @@ class Game:
         pg.quit()
 
     def render_buttons(self) -> None:
-        # @TODO: add next and macao buttons
         """
         Renders clickable buttons: Deck to draw cards, Macao! and Next Buttons
         """
+        #  Deck image and button
         x: int = (self.window_width - self.card_width) // 2 + self.card_width + 5
         y: int = (self.window_height - self.card_height) // 2
         button = Button(
             x,
             y,
-            effect=lambda: self.take_cards(self.players[0]),
+            effect=self.take_cards,
             width=self.card_width,
             height=self.card_height,
         )
-        self._game_rects["buttons"].append(button)
-
-    def render_center_cards(self) -> None:
-        """
-        Renders current center card and hidden deck of cards that player can draw from
-        """
-        card_image: Surface = image.load(self._current_card.get_image_name())
-        x: int = (self.window_width - self.card_width) // 2
-        y: int = (self.window_height - self.card_height) // 2
-        self._window.blit(card_image, (x, y))
-
         card_image = image.load("images/hidden.png")
-        x += self.card_width + 5
         self._window.blit(card_image, (x, y))
-
         text: Surface = self.font.render(str(len(self.deck)), True, self.text_color)
         text_width: int
         text_height: int
         text_width, text_height = text.get_size()
         text_x = x + (self.card_width - text_width) // 2
         text_y = y + (self.card_height - text_height) // 2
-
         self._window.blit(text, (text_x, text_y))
+        self._game_rects["buttons"].append(button)
+
+        #  Macao and next buttons
+        texts: list[str] = ["NEXT", "MAKAO!"]
+        effects: list[Callable] = [self.next_turn, self.macao]
+        button_width: int = 90
+        button_height: int = 50
+        button_color: tuple[int, int, int] = (255, 255, 255)
+        padding: int = 5
+        y = self.window_height - padding - button_height
+        for i in range(2):
+            x = self.window_width - padding - (i + 1) * button_width - i * padding
+            button = Button(
+                x,
+                y,
+                effect=effects[i],
+                width=button_width,
+                height=button_height
+            )
+            self._game_rects["buttons"].append(button)
+            pg.draw.rect(self.window, button_color, button.rect)
+            text = self.font.render(texts[i], True, self.text_color)
+            text_width, text_height = text.get_size()
+            text_x = x + (button_width - text_width) // 2
+            text_y = y + (button_height - text_height) // 2
+            self.window.blit(text, (text_x, text_y))
+
+    def render_center_card(self) -> None:
+        """
+        Renders current center card and hidden deck of cards that player can draw from
+        """
+        card_image: Surface = image.load(self._current_card.get_image_name())
+        x: int = (self.window_width - self.card_width) // 2
+        y: int = (self.window_height - self.card_height) // 2
+        self.window.blit(card_image, (x, y))
 
     def render_cards(self, player: Union[ComputerPlayer, HumanPlayer]) -> None:
         """
@@ -398,19 +448,7 @@ class Game:
                 else:
                     y = shift_coord(start_y, i)
 
-            self._window.blit(card_image, (x, y))
-
-
-class Button:
-    def __init__(
-        self, x: int, y: int, effect: Callable, width: int = 75, height: int = 75
-    ) -> None:
-        self.rect: Rect = Rect(x, y, width, height)
-        self.effect: Callable = effect
-
-    def click(self, mouse_pos: tuple[int, int]) -> None:
-        if self.rect.collidepoint(mouse_pos):
-            self.effect()
+            self.window.blit(card_image, (x, y))
 
 
 if __name__ == "__main__":
