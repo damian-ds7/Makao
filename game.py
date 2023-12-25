@@ -238,50 +238,51 @@ class Game:
         """
         Renders clickable buttons: Deck to draw cards, Macao! and Next Buttons
         """
-        #  Deck image and button
-        x: int = (self.window_width - self.card_width) // 2 + self.card_width + 5
-        y: int = (self.window_height - self.card_height) // 2
-        button = Button(
-            x,
-            y,
-            effect=self.take_cards,
-            width=self.card_width,
-            height=self.card_height,
-        )
-        card_image = image.load("images/hidden.png")
-        self._window.blit(card_image, (x, y))
-        text: Surface = self.font.render(str(len(self.deck)), True, self.text_color)
+        self._game_rects["buttons"] = []
+        x: int
+        y: int
+        button: Button
+        text: Surface
+        card_image: Surface
         text_width: int
         text_height: int
-        text_width, text_height = text.get_size()
-        text_x = x + (self.card_width - text_width) // 2
-        text_y = y + (self.card_height - text_height) // 2
-        self._window.blit(text, (text_x, text_y))
-        self._game_rects["buttons"].append(button)
-
-        #  Macao and next buttons
-        texts: list[str] = ["NEXT", "MAKAO!"]
-        effects: list[Callable] = [self.next_turn, self.macao]
-        button_width: int = 90
-        button_height: int = 50
+        text_x: int
+        text_y: int
         button_color: tuple[int, int, int] = (255, 255, 255)
+        button_width: int
+        button_height: int
         padding: int = 5
-        y = self.window_height - padding - button_height
-        for i in range(2):
-            x = self.window_width - padding - (i + 1) * button_width - i * padding
+        texts: list[str] = [str(len(self.deck)), "NEXT", "MAKAO!"]
+        effects: list[Callable] = [self.take_cards, self.next_turn, self.macao]
+        for i in range(3):
+            text = text = self.font.render(texts[i], True, self.text_color)
+            text_width, text_height = text.get_size()
+
+            if not i:
+                button_width = self.card_width
+                button_height = self.card_height
+                x = (self.window_width - button_width) // 2 + button_width + 5
+                y = (self.window_height - button_height) // 2
+                text_x = x + (button_width - text_width) // 2
+                text_y = y + (button_height - text_height) // 2
+                card_image = image.load("images/hidden.png")
+                self._window.blit(card_image, (x, y))
+            else:
+                button_width = 90
+                button_height = 50
+                y = self.window_height - padding - button_height
+                x = self.window_width - padding - i * button_width - (i - 1) * padding
+                text_x = x + (button_width - text_width) // 2
+                text_y = y + (button_height - text_height) // 2
+
             button = Button(
-                x,
-                y,
-                effect=effects[i],
-                width=button_width,
-                height=button_height
+                x, y, effect=effects[i], width=button_width, height=button_height
             )
             self._game_rects["buttons"].append(button)
-            pg.draw.rect(self.window, button_color, button.rect)
-            text = self.font.render(texts[i], True, self.text_color)
-            text_width, text_height = text.get_size()
-            text_x = x + (button_width - text_width) // 2
-            text_y = y + (button_height - text_height) // 2
+            if not i:
+                self._window.blit(card_image, (x, y))
+            else:
+                pg.draw.rect(self.window, button_color, button.rect)
             self.window.blit(text, (text_x, text_y))
 
     def render_center_card(self) -> None:
