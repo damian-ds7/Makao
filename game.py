@@ -48,11 +48,9 @@ class Button:
 
 class Game:
     # TODO:
-    # - Macao button
-    # - Next button
     # - (Optional) Stop Macao button
-    # - Click handling
     # - New window for value / color selection window after function cards are played
+    # - next_turn and macao methods
     def __init__(self, player_number: int) -> None:
         """
         Represents game
@@ -367,13 +365,13 @@ class Game:
 
         if not 0 <= position <= 3:
             raise WrongPosition(position)
-
-        card_width, card_height = self.card_width, self.card_height
+        card_width: int
+        card_height: int
         cards_per_row: int = 10
-        num_rows = len(player.hand) // cards_per_row
+        num_rows: int = len(player.hand) // cards_per_row
         if len(player.hand) % cards_per_row > 0:
             num_rows += 1
-
+        card_width, card_height = self.card_width, self.card_height
         allowed_width: int = cards_per_row * (card_width // 2) + card_width // 2
         max_total_width: int = calculate_total_width(card_width, num_rows)
 
