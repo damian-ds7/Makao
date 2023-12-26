@@ -176,6 +176,7 @@ class Game:
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
     ) -> None:
         if self._current_card.can_play(played_card):
+            # played_card.play_effect(self)
             self.discarded_deck.add_card(self._current_card)
             self._current_card = played_card
             player.remove_card(played_card)
@@ -193,44 +194,50 @@ class Game:
                 return button
         return None
 
+    def handle_quit_event(self) -> None:
+        self._game_over = True
+
+    def handle_mouse_button_down_event(self) -> None:
+        if pg.mouse.get_pressed()[2]:
+            return
+        mouse_pos: tuple[int, int] = pg.mouse.get_pos()
+        if clicked_button := self.check_button_click(mouse_pos):
+            clicked_button.effect()
+        elif played_card := self.check_card_click(mouse_pos):
+            print(f"Current card: {self._current_card}      Played card: {played_card}")
+            self.play_card(played_card, self.players[0])
+
+    def handle_video_resize_event(self, event) -> None:
+        width, height = event.size
+        if width < self.min_height or height < self.min_height:
+            self._window_width, self._window_height = (
+                self.min_width,
+                self.min_height,
+            )
+        else:
+            self._window_width, self._window_height = width, height
+        self._window = pg.display.set_mode(
+            (self.window_width, self.window_height), pg.RESIZABLE
+        )
+
+    def render_game(self) -> None:
+        self.window.fill(self.background_color)
+        self.render_center_card()
+        self.render_buttons()
+        for player in self.players:
+            self.render_cards(player)
+        pg.display.flip()
+
     def start(self) -> None:
         while not self.game_over:
             for event in pg.event.get():
                 if event.type == pg.QUIT:
-                    self._game_over = True
-
-                if event.type == pg.MOUSEBUTTONDOWN:
-                    if pg.mouse.get_pressed()[2]:
-                        continue
-                    mouse_pos: tuple[int, int] = pg.mouse.get_pos()
-                    if clicked_button := self.check_button_click(mouse_pos):
-                        clicked_button.effect()
-                    elif played_card := self.check_card_click(mouse_pos):
-                        print(
-                            f"Current card: {self._current_card}      Played card:"
-                            f" {played_card}"
-                        )
-                        self.play_card(played_card, self.players[0])
-
+                    self.handle_quit_event()
+                elif event.type == pg.MOUSEBUTTONDOWN:
+                    self.handle_mouse_button_down_event()
                 elif event.type == pg.VIDEORESIZE:
-                    width, height = event.size
-                    if width < self.min_height or height < self.min_height:
-                        self._window_width, self._window_height = (
-                            self.min_width,
-                            self.min_height,
-                        )
-                    else:
-                        self._window_width, self._window_height = width, height
-                    self._window = pg.display.set_mode(
-                        (self.window_width, self.window_height), pg.RESIZABLE
-                    )
-            self.window.fill(self.background_color)
-            self.render_center_card()
-            self.render_buttons()
-            for player in self.players:
-                self.render_cards(player)
-            pg.display.flip()
-
+                    self.handle_video_resize_event(event)
+            self.render_game()
         pg.quit()
 
     def render_buttons(self) -> None:
@@ -257,7 +264,7 @@ class Game:
         effects: list[Callable] = [
             partial(self.take_cards, player=player, number=1),
             partial(self.next_turn),
-            partial(self.macao, player=player)
+            partial(self.macao, player=player),
         ]
         for i in range(3):
             text = text = self.font.render(texts[i], True, self.text_color)
