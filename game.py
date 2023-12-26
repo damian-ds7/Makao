@@ -157,6 +157,14 @@ class Game:
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
     ) -> None:
+        """
+        Takes a specified number of cards from the deck and gives them to the player.
+
+        :param player: The player who will receive the cards.
+        :type player: Union[HumanPlayer, ComputerPlayer]
+        :param number: The number of cards to be taken, defaults to 1.
+        :type number: int, optional
+        """
         try:
             player.draw_card(self.deck, number)
         except DeckAlreadyEmptyError:
@@ -183,6 +191,14 @@ class Game:
             player.remove_card(played_card)
 
     def check_card_click(self, mouse_pos: tuple[int, int]) -> Optional[Card]:
+        """
+        Check if a card has been clicked based on the mouse position.
+
+        :param mouse_pos: The position of the mouse click.
+        :type mouse_pos: tuple[int, int]
+        :return: The card that has been clicked, or None if no card was clicked.
+        :rtype: Optional[Card]
+        """
         rect_cards = list(zip(self.human_card_rects, self.players[0].hand))
         for rect, card in reversed(rect_cards):
             if rect.collidepoint(mouse_pos):
@@ -190,6 +206,14 @@ class Game:
         return None
 
     def check_button_click(self, mouse_pos: tuple[int, int]) -> Optional[Button]:
+        """
+        Check if a button is clicked based on the given mouse position.
+
+        :param mouse_pos: The position of the mouse as a tuple of integers (x, y).
+        :type mouse_pos: tuple[int, int]
+        :return: The clicked button, if any. Otherwise, None.
+        :rtype: Optional[Button]
+        """
         for button in self._game_rects["buttons"]:
             if button.check_click(mouse_pos):
                 return button
@@ -199,6 +223,14 @@ class Game:
         self._game_over = True
 
     def handle_mouse_button_down_event(self) -> None:
+        """
+        Handles the mouse button down event.
+
+        This method checks if the right mouse button is pressed. If not, it gets the current mouse position.
+        It then checks if a button or a card is clicked and performs the corresponding action.
+
+        :return: None
+        """
         if pg.mouse.get_pressed()[2]:
             return
         mouse_pos: tuple[int, int] = pg.mouse.get_pos()
@@ -208,7 +240,14 @@ class Game:
             print(f"Current card: {self._current_card}      Played card: {played_card}")
             self.play_card(played_card, self.players[0])
 
-    def handle_video_resize_event(self, event) -> None:
+    def handle_video_resize_event(self, event: Event) -> None:
+        """
+        Handles the video resize event.
+
+        :param event: The resize event.
+        :type event: pg.event.Event
+        :return: None
+        """
         width, height = event.size
         if width < self.min_height or height < self.min_height:
             self._window_width, self._window_height = (
