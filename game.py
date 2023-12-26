@@ -4,6 +4,7 @@ from players import HumanPlayer, ComputerPlayer
 import pygame as pg
 from pygame import Rect, Surface, image, font
 from typing import Callable, Optional, Union
+from functools import partial
 
 
 class WrongCoord(ValueError):
@@ -168,7 +169,7 @@ class Game:
     def macao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
         print("clicked macao")
 
-    def next_turn(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+    def next_turn(self) -> None:
         print("clicked next")
 
     def play_card(
@@ -203,7 +204,7 @@ class Game:
                         continue
                     mouse_pos: tuple[int, int] = pg.mouse.get_pos()
                     if clicked_button := self.check_button_click(mouse_pos):
-                        clicked_button.effect(self.players[0])
+                        clicked_button.effect()
                     elif played_card := self.check_card_click(mouse_pos):
                         print(
                             f"Current card: {self._current_card}      Played card:"
@@ -250,8 +251,14 @@ class Game:
         button_width: int
         button_height: int
         padding: int = 5
-        texts: list[str] = [str(len(self.deck)), "NEXT", "MAKAO!"]
-        effects: list[Callable] = [self.take_cards, self.next_turn, self.macao]
+        deck_len: int = len(self.discarded_deck) if not self.deck else len(self.deck)
+        texts: list[str] = [str(deck_len), "NEXT", "MAKAO!"]
+        player: HumanPlayer = self.players[0]
+        effects: list[Callable] = [
+            partial(self.take_cards, player=player, number=1),
+            partial(self.next_turn),
+            partial(self.macao, player=player)
+        ]
         for i in range(3):
             text = text = self.font.render(texts[i], True, self.text_color)
             text_width, text_height = text.get_size()
