@@ -38,8 +38,8 @@ class Card:
         if symbol not in SYMBOLS:
             raise WrongCardSymbol(symbol)
 
-        self._value = value
-        self._symbol = symbol
+        self._value: str = value
+        self._symbol: str = symbol
 
     @property
     def value(self) -> str:
@@ -56,7 +56,7 @@ class Card:
         """
         Checks if card selected by the player can be played
         """
-        return True
+        return self.symbol == played_card.symbol or self.value == played_card.value
 
     def __repr__(self) -> str:
         return f"Card('{self.value}', '{self.symbol}')"
