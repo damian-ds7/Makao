@@ -1,5 +1,7 @@
 from constants import SYMBOLS, VALUES
-from typing import Union
+from typing import TYPE_CHECKING, Callable, Union
+if TYPE_CHECKING:
+    from game import Game
 
 
 class WrongCardValue(Exception):
@@ -40,6 +42,16 @@ class Card:
 
         self._value: str = value
         self._symbol: str = symbol
+        effect_map: dict[str, Callable] = {
+            "2": self._draw_cards,
+            "3": self._draw_cards,
+            "4": self._skip_next_player,
+            "jack": self._request_card,
+            "queen": self._play_any_card,
+            "king": self._king_draw_cards,
+            "ace": self._change_color,
+        }
+        self.play_effect: Callable = effect_map.get(self.value, self._no_effect)
 
     @property
     def value(self) -> str:
@@ -57,6 +69,28 @@ class Card:
         Checks if card selected by the player can be played
         """
         return self.symbol == played_card.symbol or self.value == played_card.value
+
+    def _no_effect(self, game: "Game"):
+        pass
+
+    def _draw_cards(self, game: "Game"):
+        number = int(self.value)
+        print(number)
+
+    def _skip_next_player(self, game: "Game"):
+        pass
+
+    def _request_card(self, game: "Game"):
+        pass
+
+    def _play_any_card(self, game: "Game"):
+        pass
+
+    def _king_draw_cards(self, game: "Game"):
+        pass
+
+    def _change_color(self, game: "Game"):
+        pass
 
     def __repr__(self) -> str:
         return f"Card('{self.value}', '{self.symbol}')"
