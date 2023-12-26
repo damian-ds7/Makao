@@ -3,7 +3,8 @@ from deck import Deck, DeckAlreadyEmptyError
 from players import HumanPlayer, ComputerPlayer
 import pygame as pg
 from pygame import Rect, Surface, image, font
-from typing import Callable, Optional, Union
+from pygame.event import Event
+from typing import Callable, Optional, Union, Any
 from functools import partial
 
 
@@ -319,85 +320,123 @@ class Game:
         :type player: Union[ComputerPlayer, HumanPlayer]
         :raises WrongPosition: When wrong index is given
         """
-
-        def calculate_start_coord(coord: str, total_width: int) -> int:
-            coord = coord.lower()
-            if not (coord == "x" or coord == "y"):
-                raise WrongCoord(coord)
-
-            if coord == "x":
-                return (self.window_width - total_width) // 2
-            else:
-                return (self.window_height - total_width) // 2
-
-        def shift_coord(coord: int, index: int) -> int:
-            """
-            Adjusts shifting coordinate based on cards position in player's deck
-            """
-            index %= cards_per_row
-            return coord + index * (card_width // 2)
-
-        def calculate_total_width(card_width: int, num_rows: int) -> int:
-            return len(player.hand) * (card_width // 2) + num_rows * card_width // 2
-
-        def scale_card(
-            card_width: int,
-            card_height: int,
-            cards_per_row: int,
-            max_total_width: int,
-            allowed_width: int,
-            num_rows: int,
-        ) -> tuple[int, int, int, int, int]:
-            """
-            Based on total width modifies number of cards in row, card width and height
-            """
-            if not num_rows > 3:
-                return card_width, card_height, cards_per_row, max_total_width, num_rows
-
-            num_rows = 3
-            cards_per_row = len(player.hand) // num_rows
-            if len(player.hand) % num_rows > 0:
-                cards_per_row += 1
-            scale_factor = allowed_width / (
-                cards_per_row * (card_width // 2) + card_width // 2
-            )
-            card_width = int(card_width * scale_factor)
-            card_height = int(card_height * scale_factor)
-            max_total_width = calculate_total_width(card_width, num_rows)
-            return card_width, card_height, cards_per_row, max_total_width, num_rows
-
-        def load_scale_image(
-            card_height: int, card_width: int, path: str = "images/hidden.png"
-        ):
-            card_image: Surface = image.load(path)
-            if card_height != self.card_height or card_width != self.card_width:
-                card_image = pg.transform.scale(card_image, (card_width, card_height))
-            return card_image
-
         padding: int = 5
         position: int = self.players.index(player)
 
         if not 0 <= position <= 3:
             raise WrongPosition(position)
+
         card_width: int
         card_height: int
-        cards_per_row: int = 10
-        num_rows: int = len(player.hand) // cards_per_row
-        if len(player.hand) % cards_per_row > 0:
-            num_rows += 1
         card_width, card_height = self.card_width, self.card_height
-        allowed_width: int = cards_per_row * (card_width // 2) + card_width // 2
-        max_total_width: int = calculate_total_width(card_width, num_rows)
-
-        card_width, card_height, cards_per_row, max_total_width, num_rows = scale_card(
+        cards_per_row: int = 10
+        hand_len: int = len(player.hand)
+        num_rows: int = self._calculate_num_rows(hand_len, cards_per_row)
+        allowed_width: int = self._calculate_allowed_width(cards_per_row)
+        max_total_width: int = self._calculate_total_width(
+            card_width, num_rows, hand_len
+        )
+        (
             card_width,
             card_height,
             cards_per_row,
             max_total_width,
+            num_rows,
+        ) = self._scale_card(
+            cards_per_row,
+            max_total_width,
             allowed_width,
             num_rows,
+            player,
         )
-        position_dict: dict[int, dict] = {
+
+        position_dict: dict[int, dict[str, Any]] = self._get_position_dict(padding, card_height)
+        if position != 0:
+            card_image: Surface = self._load_scale_image(card_height, card_width)
+        else:
+            self._game_rects["human_cards"] = []
+
+        total_width = min(max_total_width, allowed_width)
+        max_total_width -= total_width
+
+        start_coord: int = self._calculate_start_coord(
+            position_dict[position]["start_coord"], total_width
+        )
+        fixed_coord: int = position_dict[position]["fixed_coord"]
+
+        if position_dict[position]["rotate"]:
+            card_image = pg.transform.rotate(card_image, 90)
+
+        if position in [0, 1]:
+            start_x = start_coord
+            y = fixed_coord
+        else:
+            start_y = start_coord
+            x = fixed_coord
+        for i, card in enumerate(player.hand):
+            if i != 0 and i % cards_per_row == 0:
+                total_width = min(max_total_width, allowed_width)
+                max_total_width -= total_width
+                start_coord = self._calculate_start_coord(
+                    position_dict[position]["start_coord"], total_width
+                )
+                if position in [0, 1]:
+                    start_x = start_coord
+                    y = y - ((-1) ** position) * (card_height + padding)
+                else:
+                    start_y = start_coord
+                    x = x + (-1) ** (position - 2) * (card_height + padding)
+
+            if position == 0:
+                x = self._shift_coord(start_x, i, cards_per_row, card_width)
+                card_image = self._load_scale_image(
+                    card_height, card_width, card.get_image_name()
+                )
+                card_rect: Rect = Rect(x, y, card_width, card_height)
+                self._game_rects["human_cards"].append(card_rect)
+            elif position == 1:
+                x = self._shift_coord(start_x, i, cards_per_row, card_width)
+            else:
+                y = self._shift_coord(start_y, i, cards_per_row, card_width)
+
+            self.window.blit(card_image, (x, y))
+
+    def _calculate_num_rows(self, hand_len: int, cards_per_row: int) -> int:
+        num_rows = hand_len // cards_per_row
+        if hand_len % cards_per_row > 0:
+            num_rows += 1
+        return num_rows
+
+    def _calculate_allowed_width(self, cards_per_row: int) -> int:
+        return cards_per_row * (self.card_width // 2) + self.card_width // 2
+
+    def _calculate_total_width(
+        self, card_width: int, num_rows: int, hand_len: int
+    ) -> int:
+        return hand_len * (card_width // 2) + num_rows * card_width // 2
+
+    def _calculate_start_coord(self, coord: str, total_width: int) -> int:
+        coord = coord.lower()
+        if not (coord == "x" or coord == "y"):
+            raise WrongCoord(coord)
+
+        if coord == "x":
+            return (self.window_width - total_width) // 2
+        else:
+            return (self.window_height - total_width) // 2
+
+    @staticmethod
+    def _shift_coord(
+        coord: int, index: int, cards_per_row: int, card_width: int
+    ) -> int:
+        """
+        Adjusts shifting coordinate based on cards position in player's deck
+        """
+        index %= cards_per_row
+        return coord + index * (card_width // 2)
+
+    def _get_position_dict(self, padding, card_height: int) -> dict[int, dict[str, Any]]:
+        return {
             0: {
                 "start_coord": "x",
                 "fixed_coord": self.window_height - card_height - padding,
@@ -412,58 +451,46 @@ class Game:
             },
         }
 
-        if position != 0:
-            card_image: Surface = load_scale_image(card_height, card_width)
-        else:
-            self._game_rects["human_cards"] = []
+    def _scale_card(
+        self,
+        cards_per_row: int,
+        max_total_width: int,
+        allowed_width: int,
+        num_rows: int,
+        player,
+    ) -> tuple[int, ...]:
+        if num_rows <= 3:
+            return (
+                self.card_width,
+                self.card_height,
+                cards_per_row,
+                max_total_width,
+                num_rows,
+            )
 
-        total_width = min(max_total_width, allowed_width)
-        max_total_width -= total_width
-
-        start_coord: int = calculate_start_coord(
-            position_dict[position]["start_coord"], total_width
+        num_rows = 3
+        cards_per_row = len(player.hand) // num_rows
+        if len(player.hand) % num_rows > 0:
+            cards_per_row += 1
+        scale_factor = allowed_width / (
+            cards_per_row * (self.card_width // 2) + self.card_width // 2
         )
-        fixed_coord: int = position_dict[position]["fixed_coord"]
-        if position_dict[position]["rotate"]:
-            card_image = pg.transform.rotate(card_image, 90)
+        card_width = int(self.card_width * scale_factor)
+        card_height = int(self.card_height * scale_factor)
+        max_total_width = self._calculate_total_width(
+            card_width, num_rows, len(player.hand)
+        )
+        return card_width, card_height, cards_per_row, max_total_width, num_rows
 
-        if position in [0, 1]:
-            start_x = start_coord
-            y = fixed_coord
-        else:
-            start_y = start_coord
-            x = fixed_coord
-
-        for i, card in enumerate(player.hand):
-            if i != 0 and i % cards_per_row == 0:
-                total_width = min(max_total_width, allowed_width)
-                max_total_width -= total_width
-                start_coord = calculate_start_coord(
-                    position_dict[position]["start_coord"], total_width
-                )
-                if position in [0, 1]:
-                    start_x = start_coord
-                    y = y + -((-1) ** position) * (card_height + padding)
-                else:
-                    start_y = start_coord
-                    x = x + (-1) ** (position - 2) * (card_height + padding)
-
-            if position == 0:
-                x = shift_coord(start_x, i)
-                card_image = load_scale_image(
-                    card_height, card_width, card.get_image_name()
-                )
-                card_rect: Rect = Rect(x, y, card_width, card_height)
-                self._game_rects["human_cards"].append(card_rect)
-            else:
-                if position == 1:
-                    x = shift_coord(start_x, i)
-                else:
-                    y = shift_coord(start_y, i)
-
-            self.window.blit(card_image, (x, y))
+    def _load_scale_image(
+        self, card_height: int, card_width: int, path: str = "images/hidden.png"
+    ):
+        card_image: Surface = image.load(path)
+        if card_height != self.card_height or card_width != self.card_width:
+            card_image = pg.transform.scale(card_image, (card_width, card_height))
+        return card_image
 
 
 if __name__ == "__main__":
-    game = Game(4)
+    game = Game(2)
     game.start()
