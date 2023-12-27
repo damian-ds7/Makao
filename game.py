@@ -58,7 +58,6 @@ class Game:
         Represents game
 
         :param player_number: Number of players, must be at least 2 and not greater than 4
-        :type player_number: int
         :raises WrongPlayerNumber: If the number of players is not within the allowed range.
         """
         try:
@@ -77,8 +76,9 @@ class Game:
         for _ in range(5):
             for player in self._players:
                 self.take_cards(player)
-        self._current_card = self._deck.deal()
-        self._game_over = False
+        self._current_card: Card = self._deck.deal()
+        self._game_over: bool = False
+        self._penelty_draw: int = 0
 
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
@@ -161,9 +161,7 @@ class Game:
         Takes a specified number of cards from the deck and gives them to the player.
 
         :param player: The player who will receive the cards.
-        :type player: Union[HumanPlayer, ComputerPlayer]
         :param number: The number of cards to be taken, defaults to 1.
-        :type number: int, optional
         """
         try:
             player.draw_card(self.deck, number)
@@ -195,9 +193,7 @@ class Game:
         Check if a card has been clicked based on the mouse position.
 
         :param mouse_pos: The position of the mouse click.
-        :type mouse_pos: tuple[int, int]
         :return: The card that has been clicked, or None if no card was clicked.
-        :rtype: Optional[Card]
         """
         rect_cards = list(zip(self.human_card_rects, self.players[0].hand))
         for rect, card in reversed(rect_cards):
@@ -210,9 +206,7 @@ class Game:
         Check if a button is clicked based on the given mouse position.
 
         :param mouse_pos: The position of the mouse as a tuple of integers (x, y).
-        :type mouse_pos: tuple[int, int]
         :return: The clicked button, if any. Otherwise, None.
-        :rtype: Optional[Button]
         """
         for button in self._game_rects["buttons"]:
             if button.check_click(mouse_pos):
@@ -245,7 +239,6 @@ class Game:
         Handles the video resize event.
 
         :param event: The resize event.
-        :type event: pg.event.Event
         :return: None
         """
         width, height = event.size
@@ -261,6 +254,15 @@ class Game:
         )
 
     def render_game(self) -> None:
+        """
+        Renders the game on the screen.
+
+        This method fills the window with the background color, renders the center card,
+        renders the buttons, and renders the cards for each player. Finally, it updates
+        the display to show the changes.
+
+        :return: None
+        """
         self.window.fill(self.background_color)
         self.render_center_card()
         self.render_buttons()
@@ -269,6 +271,9 @@ class Game:
         pg.display.flip()
 
     def start(self) -> None:
+        """
+        Starts the game loop and handles various events such as quitting, mouse button down, and video resize.
+        """
         while not self.game_over:
             for event in pg.event.get():
                 if event.type == pg.QUIT:
@@ -356,7 +361,6 @@ class Game:
         All computers' cards are rendered upside down
 
         :param player: Player object from list of players
-        :type player: Union[ComputerPlayer, HumanPlayer]
         :raises WrongPosition: When wrong index is given
         """
         padding: int = 5
@@ -389,7 +393,9 @@ class Game:
             player,
         )
 
-        position_dict: dict[int, dict[str, Any]] = self._get_position_dict(padding, card_height)
+        position_dict: dict[int, dict[str, Any]] = self._get_position_dict(
+            padding, card_height
+        )
         if position != 0:
             card_image: Surface = self._load_scale_image(card_height, card_width)
         else:
@@ -452,9 +458,25 @@ class Game:
     def _calculate_total_width(
         self, card_width: int, num_rows: int, hand_len: int
     ) -> int:
+        """
+        Calculates the total width required to display the cards in the hand.
+
+        :param card_width: The width of a single card.
+        :param num_rows: The number of rows in the card display.
+        :param hand_len: The number of cards in the hand.
+        :return: The total width required to display the cards.
+        """
         return hand_len * (card_width // 2) + num_rows * card_width // 2
 
     def _calculate_start_coord(self, coord: str, total_width: int) -> int:
+        """
+        Calculate the starting coordinate based on the given coordinate and total width.
+
+        :param coord: The coordinate to calculate the starting coordinate for. Must be either "x" or "y".
+        :param total_width: The total width of the window.
+        :return: The calculated starting coordinate.
+        :raises WrongCoord: If the given coordinate is neither "x" nor "y".
+        """
         coord = coord.lower()
         if not (coord == "x" or coord == "y"):
             raise WrongCoord(coord)
@@ -474,7 +496,18 @@ class Game:
         index %= cards_per_row
         return coord + index * (card_width // 2)
 
-    def _get_position_dict(self, padding, card_height: int) -> dict[int, dict[str, Any]]:
+    def _get_position_dict(
+        self, padding, card_height: int
+    ) -> dict[int, dict[str, Any]]:
+        """
+        Returns a dictionary containing the position information for each player.
+
+        :param padding: The padding value.
+        :param card_height: The height of the card.
+        :return: A dictionary where the keys represent the player index
+            and the values represent the position information, including the start coordinate,
+            fixed coordinate, and rotation flag.
+        """
         return {
             0: {
                 "start_coord": "x",
@@ -498,6 +531,17 @@ class Game:
         num_rows: int,
         player,
     ) -> tuple[int, ...]:
+        """
+        Scales the card dimensions based on the number of rows and allowed width.
+
+        :param cards_per_row: Number of cards per row.
+        :param max_total_width: Maximum total width allowed.
+        :param allowed_width: Allowed width for scaling.
+        :param num_rows: Number of rows.
+        :param player: Player object.
+        :return: Tuple containing the scaled card width, height, cards per row,
+                 maximum total width, and number of rows.
+        """
         if num_rows <= 3:
             return (
                 self.card_width,
@@ -523,7 +567,15 @@ class Game:
 
     def _load_scale_image(
         self, card_height: int, card_width: int, path: str = "images/hidden.png"
-    ):
+    ) -> Surface:
+        """
+        Load and scale an image based on the given card height, card width, and path.
+
+        :param card_height: The desired height of the card image.
+        :param card_width: The desired width of the card image.
+        :param path: The path to the image file. Defaults to "images/hidden.png".
+        :return: The loaded and scaled card image.
+        """
         card_image: Surface = image.load(path)
         if card_height != self.card_height or card_width != self.card_width:
             card_image = pg.transform.scale(card_image, (card_width, card_height))
