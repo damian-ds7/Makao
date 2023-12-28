@@ -2,10 +2,15 @@ from card import Card
 from deck import Deck, DeckAlreadyEmptyError
 from players import HumanPlayer, ComputerPlayer
 import pygame as pg
+from pygame.surfarray import array3d, make_surface
 from pygame import Rect, Surface, image, font
 from pygame.event import Event
+import pygame_widgets as pgw  # type: ignore
+from pygame_widgets.button import Button  # type: ignore
+from pygame_widgets.mouse import Mouse, MouseState  # type: ignore
 from typing import Callable, Optional, Union, Any
 from functools import partial
+from constants import SYMBOLS
 
 
 class WrongCoord(ValueError):
@@ -31,21 +36,29 @@ class WrongPlayerNumber(ValueError):
         super().__init__(message, player_number)
 
 
-class Button:
-    def __init__(
-        self, x: int, y: int, effect: Callable, width: int = 75, height: int = 75
-    ) -> None:
-        self.rect: Rect = Rect(x, y, width, height)
-        self._effect: Callable = effect
+class ImageButton(Button):
+    def __init__(self, win: Surface, x: int, y: int, width: int, height: int, **kwargs):
+        super().__init__(win, x, y, width, height, **kwargs)
+        self.hover_image = self.darken_image(self.image)
 
-    @property
-    def effect(self) -> Callable:
-        return self._effect
+    def darken_image(self, image: Surface) -> Surface:
+        arr = array3d(image)
+        arr = arr * 0.85
+        return make_surface(arr)
 
-    def check_click(self, mouse_pos: tuple[int, int]) -> bool:
-        if self.rect.collidepoint(mouse_pos):
-            return True
-        return False
+    def draw(self):
+        mouseState = Mouse.getMouseState()
+        x, y = Mouse.getMousePos()
+        if self.contains(x, y):
+            if mouseState == MouseState.HOVER or mouseState == MouseState.DRAG:
+                self.win.blit(self.hover_image, (self._x, self._y))
+        else:
+            self.win.blit(self.image, (self._x, self._y))
+
+
+class SelectionMenu:
+    def __init__(self, items: list[str]) -> None:
+        self.items = items
 
 
 class Game:
@@ -78,7 +91,9 @@ class Game:
                 self.take_cards(player)
         self._current_card: Card = self._deck.deal()
         self._game_over: bool = False
-        self._penelty_draw: int = 0
+        self._penalty_draw: int = 0
+        self._current_player_index: int = 0
+        self._current_player_move_status: bool = False
 
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
@@ -87,12 +102,16 @@ class Game:
         self._window_width: int = 1050
         self._window_height: int = 800
         self._background_color: tuple[int, int, int] = (34, 139, 34)
+        self._rect_bg_color: tuple[int, int, int] = (255, 255, 255)
         self._text_color: tuple[int, int, int] = (0, 0, 0)
-        self._font: font.Font = font.Font(None, 30)
+        self._font_size: int = 30
+        self._font: font.Font = font.Font(None, self._font_size)
         self._card_width, self._card_height = image.load("images/hidden.png").get_size()
         self._window: Surface = pg.display.set_mode(
             (self._window_width, self._window_height)
         )
+
+        self.render_buttons()
 
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
@@ -113,6 +132,18 @@ class Game:
     @property
     def human_card_rects(self) -> list[Rect]:
         return self._game_rects["human_cards"]
+
+    @property
+    def current_player_index(self) -> int:
+        return self._current_player_index
+
+    @property
+    def current_player_move_status(self) -> bool:
+        return self._current_player_move_status
+
+    @property
+    def penalty_draw(self) -> int:
+        return self._penalty_draw
 
     @property
     def card_width(self) -> int:
@@ -147,12 +178,35 @@ class Game:
         return self._background_color
 
     @property
+    def rect_bg_color(self) -> tuple[int, int, int]:
+        return self._rect_bg_color
+
+    @property
     def text_color(self) -> tuple[int, int, int]:
         return self._text_color
 
     @property
     def font(self) -> font.Font:
         return self._font
+
+    @property
+    def font_size(self) -> int:
+        return self._font_size
+
+    def increase_penalty(self, to_add: int) -> None:
+        self._penalty_draw += to_add
+
+    def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer]):
+        self._penalty_draw = (
+            len(self.deck) if len(self.deck) < self.penalty_draw else self.penalty_draw
+        )
+        self.take_cards(player, self.penalty_draw)
+        self._penalty_draw = 0
+
+    @staticmethod
+    def select_symbol() -> int:
+        selected_index: Optional[int] = None
+        return selected_index
 
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
@@ -177,16 +231,21 @@ class Game:
         print("clicked macao")
 
     def next_turn(self) -> None:
-        print("clicked next")
+        if self.current_player_move_status:
+            self._current_player_index = (self.current_player_index + 1) % len(
+                self.players
+            )
+            self._current_player_move_status = False
 
     def play_card(
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
     ) -> None:
         if self._current_card.can_play(played_card):
-            # played_card.play_effect(self)
+            played_card.play_effect(self)
             self.discarded_deck.add_card(self._current_card)
             self._current_card = played_card
             player.remove_card(played_card)
+            self._current_player_move_status = True
 
     def check_card_click(self, mouse_pos: tuple[int, int]) -> Optional[Card]:
         """
@@ -199,18 +258,6 @@ class Game:
         for rect, card in reversed(rect_cards):
             if rect.collidepoint(mouse_pos):
                 return card
-        return None
-
-    def check_button_click(self, mouse_pos: tuple[int, int]) -> Optional[Button]:
-        """
-        Check if a button is clicked based on the given mouse position.
-
-        :param mouse_pos: The position of the mouse as a tuple of integers (x, y).
-        :return: The clicked button, if any. Otherwise, None.
-        """
-        for button in self._game_rects["buttons"]:
-            if button.check_click(mouse_pos):
-                return button
         return None
 
     def handle_quit_event(self) -> None:
@@ -228,9 +275,7 @@ class Game:
         if pg.mouse.get_pressed()[2]:
             return
         mouse_pos: tuple[int, int] = pg.mouse.get_pos()
-        if clicked_button := self.check_button_click(mouse_pos):
-            clicked_button.effect()
-        elif played_card := self.check_card_click(mouse_pos):
+        if played_card := self.check_card_click(mouse_pos):
             print(f"Current card: {self._current_card}      Played card: {played_card}")
             self.play_card(played_card, self.players[0])
 
@@ -252,8 +297,9 @@ class Game:
         self._window = pg.display.set_mode(
             (self.window_width, self.window_height), pg.RESIZABLE
         )
+        self.render_buttons()
 
-    def render_game(self) -> None:
+    def render_game(self, events: list[Event]) -> None:
         """
         Renders the game on the screen.
 
@@ -265,9 +311,12 @@ class Game:
         """
         self.window.fill(self.background_color)
         self.render_center_card()
-        self.render_buttons()
+        self.render_game_info()
         for player in self.players:
             self.render_cards(player)
+        for button in self._game_rects["buttons"]:
+            button.draw()
+        pgw.update(events)
         pg.display.flip()
 
     def start(self) -> None:
@@ -293,54 +342,61 @@ class Game:
         x: int
         y: int
         button: Button
-        text: Surface
-        card_image: Surface
-        text_width: int
-        text_height: int
-        text_x: int
-        text_y: int
-        button_color: tuple[int, int, int] = (255, 255, 255)
+        card_image: Optional[Surface]
         button_width: int
         button_height: int
         padding: int = 5
         deck_len: int = len(self.discarded_deck) if not self.deck else len(self.deck)
-        texts: list[str] = [str(deck_len), "NEXT", "MAKAO!"]
+        texts: list[str] = [str(deck_len), "NEXT", "PENALTY", "MAKAO!"]
         player: HumanPlayer = self.players[0]
         effects: list[Callable] = [
             partial(self.take_cards, player=player, number=1),
-            partial(self.next_turn),
+            self.next_turn,
+            partial(self.draw_penalty, player=player),
             partial(self.macao, player=player),
         ]
-        for i in range(3):
-            text = text = self.font.render(texts[i], True, self.text_color)
-            text_width, text_height = text.get_size()
-
-            if not i:
+        inactiveColour: tuple[int, int, int]
+        hoverColour: tuple[float, ...]
+        pressedColour: tuple[float, ...]
+        for i, (message, effect) in enumerate(zip(texts, effects)):
+            try:
+                int(message)
                 button_width = self.card_width
                 button_height = self.card_height
                 x = (self.window_width - button_width) // 2 + button_width + 5
                 y = (self.window_height - button_height) // 2
-                text_x = x + (button_width - text_width) // 2
-                text_y = y + (button_height - text_height) // 2
                 card_image = image.load("images/hidden.png")
-                self._window.blit(card_image, (x, y))
-            else:
+                button = ImageButton(
+                    self.window,
+                    x,
+                    y,
+                    button_width,
+                    button_height,
+                    text=message,
+                    image=card_image,
+                    onClick=effect,
+                )
+            except ValueError:
                 button_width = 90
                 button_height = 50
                 y = self.window_height - padding - button_height
                 x = self.window_width - padding - i * button_width - (i - 1) * padding
-                text_x = x + (button_width - text_width) // 2
-                text_y = y + (button_height - text_height) // 2
-
-            button = Button(
-                x, y, effect=effects[i], width=button_width, height=button_height
-            )
+                inactiveColour = self.rect_bg_color
+                hoverColour = tuple(x*0.85 for x in self.rect_bg_color)
+                pressedColour = tuple(x*0.9 for x in self.rect_bg_color)
+                button = Button(
+                    self.window,
+                    x,
+                    y,
+                    button_width,
+                    button_height,
+                    text=message,
+                    onClick=effect,
+                    inactiveColour=inactiveColour,
+                    hoverColour=hoverColour,
+                    pressedColour=pressedColour,
+                )
             self._game_rects["buttons"].append(button)
-            if not i:
-                self._window.blit(card_image, (x, y))
-            else:
-                pg.draw.rect(self.window, button_color, button.rect)
-            self.window.blit(text, (text_x, text_y))
 
     def render_center_card(self) -> None:
         """
@@ -497,7 +553,7 @@ class Game:
         return coord + index * (card_width // 2)
 
     def _get_position_dict(
-        self, padding, card_height: int
+        self, padding: int, card_height: int
     ) -> dict[int, dict[str, Any]]:
         """
         Returns a dictionary containing the position information for each player.
