@@ -46,12 +46,12 @@ class Card:
             "2": self._draw_cards,
             "3": self._draw_cards,
             "4": self._skip_next_player,
-            "jack": self._request_card,
+            "jack": self._request_value,
             "queen": self._play_any_card,
             "king": self._king_draw_cards,
-            "ace": self._change_color,
+            "ace": self._request_symbol,
         }
-        self.play_effect: Callable = effect_map.get(self.value, self._no_effect)
+        self._play_effect: Callable = effect_map.get(self.value, self._no_effect)
 
     @property
     def value(self) -> str:
@@ -60,6 +60,10 @@ class Card:
     @property
     def symbol(self) -> str:
         return self._symbol
+
+    @property
+    def play_effect(self):
+        return self._play_effect
 
     def get_image_name(self) -> str:
         return f"images/{self.symbol}_{self.value}.png"
@@ -75,12 +79,12 @@ class Card:
 
     def _draw_cards(self, game: "Game"):
         number = int(self.value)
-        print(number)
+        game.increase_penalty(number)
 
     def _skip_next_player(self, game: "Game"):
         pass
 
-    def _request_card(self, game: "Game"):
+    def _request_value(self, game: "Game"):
         pass
 
     def _play_any_card(self, game: "Game"):
@@ -89,8 +93,8 @@ class Card:
     def _king_draw_cards(self, game: "Game"):
         pass
 
-    def _change_color(self, game: "Game"):
-        pass
+    def _request_symbol(self, game: "Game"):
+        game.select_symbol()
 
     def __repr__(self) -> str:
         return f"Card('{self.value}', '{self.symbol}')"
