@@ -46,7 +46,7 @@ class ImageButton(Button):
         arr = arr * 0.85
         return make_surface(arr)
 
-    def draw(self):
+    def draw(self, **kwargs):
         mouseState = Mouse.getMouseState()
         x, y = Mouse.getMousePos()
         if self.contains(x, y):
@@ -54,11 +54,58 @@ class ImageButton(Button):
                 self.win.blit(self.hover_image, (self._x, self._y))
         else:
             self.win.blit(self.image, (self._x, self._y))
+        if kwargs:
+            new_len = kwargs.get("new_len", None)
+            self.setText(new_len)
+
+        self.textRect = self.text.get_rect()
+        self.alignTextRect()
+        self.win.blit(self.text, self.textRect)
 
 
 class SelectionMenu:
-    def __init__(self, items: list[str]) -> None:
-        self.items = items
+    def __init__(self, items: list[str], screen: Surface) -> None:
+        self.screen: Surface = screen
+        button_height: int = 30
+        padding: int = 5
+        font_size: int = 20
+        window_height: int = len(items) * (button_height + padding) + padding
+        longest_text: str = max(items, key=len)
+        window_width: int = len(longest_text) * font_size + 2 * padding
+        x: int = self.screen.get_width() // 2 - window_width // 2
+        y: int = self.screen.get_height() // 2 - window_height // 2
+        self.rect = Rect(x, y, window_width, window_height)
+        self.background_color: tuple[int, int, int] = (34, 139, 34)
+        self.buttons: list[Button] = []
+        for i, text in enumerate(items):
+            button = Button(
+                self.screen,
+                self.rect.x + padding,
+                self.rect.y + i * (button_height + padding) + padding,
+                window_width - 2 * padding,
+                button_height,
+                text=text,
+                fontSize=font_size,
+            )
+            self.buttons.append(button)
+
+    def run(self) -> int:
+        running: bool = True
+        selected: int
+        while running:
+            events: list[Event] = pg.event.get()
+            for event in events:
+                if event.type == pg.QUIT:
+                    continue
+            pg.draw.rect(self.screen, self.background_color, self.rect)
+            for i, button in enumerate(self.buttons):
+                if button.clicked:
+                    selected = i
+                    running = False
+                button.draw()
+            pgw.update(events)
+            pg.display.update(self.rect)
+        return selected
 
 
 class Game:
@@ -203,10 +250,11 @@ class Game:
         self.take_cards(player, self.penalty_draw)
         self._penalty_draw = 0
 
-    @staticmethod
-    def select_symbol() -> int:
-        selected_index: Optional[int] = None
-        return selected_index
+    def select_symbol(self) -> Optional[str]:
+        menu: SelectionMenu = SelectionMenu(SYMBOLS, self.window)
+        selected_index = menu.run()
+        print(SYMBOLS[selected_index])
+        return SYMBOLS[selected_index]
 
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
@@ -315,7 +363,11 @@ class Game:
         for player in self.players:
             self.render_cards(player)
         for button in self._game_rects["buttons"]:
-            button.draw()
+            try:
+                new_len = str(len(self.discarded_deck) if not self.deck else len(self.deck))
+                button.draw(new_len=new_len)
+            except TypeError:
+                button.draw()
         pgw.update(events)
         pg.display.flip()
 
@@ -324,15 +376,44 @@ class Game:
         Starts the game loop and handles various events such as quitting, mouse button down, and video resize.
         """
         while not self.game_over:
-            for event in pg.event.get():
+            events: list[Event] = pg.event.get()
+            for event in events:
                 if event.type == pg.QUIT:
                     self.handle_quit_event()
                 elif event.type == pg.MOUSEBUTTONDOWN:
                     self.handle_mouse_button_down_event()
                 elif event.type == pg.VIDEORESIZE:
                     self.handle_video_resize_event(event)
-            self.render_game()
+            self.render_game(events)
         pg.quit()
+
+    def render_game_info(self) -> None:
+        padding: int = 10
+        x: int = padding
+        y: int = padding
+        width: int
+        height: int
+        info_messages: list[str] = [
+            "Penalty draw sum: ",
+            "Required value: ",
+            "Required symbol: ",
+        ]
+        info_values: list[Any] = [
+            self.penalty_draw if self.penalty_draw else None,
+            None,
+            None,
+        ]
+        info: zip[tuple[str, Any]] = zip(info_messages, info_values)
+        for i, (message, value) in enumerate(info):
+            if value:
+                text: Surface = self.font.render(
+                    message + str(value), True, self.text_color
+                )
+                width, height = text.get_size()
+                field: Rect = Rect(x, y, width, height)
+                pg.draw.rect(self.window, self.rect_bg_color, field)
+                self.window.blit(text, (x, y))
+                y += text.get_height() + padding
 
     def render_buttons(self) -> None:
         """
@@ -382,8 +463,8 @@ class Game:
                 y = self.window_height - padding - button_height
                 x = self.window_width - padding - i * button_width - (i - 1) * padding
                 inactiveColour = self.rect_bg_color
-                hoverColour = tuple(x*0.85 for x in self.rect_bg_color)
-                pressedColour = tuple(x*0.9 for x in self.rect_bg_color)
+                hoverColour = tuple(x * 0.85 for x in self.rect_bg_color)
+                pressedColour = tuple(x * 0.9 for x in self.rect_bg_color)
                 button = Button(
                     self.window,
                     x,
@@ -634,7 +715,7 @@ class Game:
         """
         card_image: Surface = image.load(path)
         if card_height != self.card_height or card_width != self.card_width:
-            card_image = pg.transform.scale(card_image, (card_width, card_height))
+            card_image = pg.transform.smoothscale(card_image, (card_width, card_height))
         return card_image
 
 
