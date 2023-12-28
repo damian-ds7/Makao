@@ -10,7 +10,6 @@ from pygame_widgets.button import Button  # type: ignore
 from pygame_widgets.mouse import Mouse, MouseState  # type: ignore
 from typing import Callable, Optional, Union, Any
 from functools import partial
-from constants import SYMBOLS
 
 
 class WrongCoord(ValueError):
@@ -64,28 +63,40 @@ class ImageButton(Button):
 
 
 class SelectionMenu:
-    def __init__(self, items: list[str], screen: Surface) -> None:
+    def __init__(
+        self,
+        items: list[str],
+        screen: Surface,
+        button_height: int = 30,
+        button_width: int = 90,
+    ) -> None:
         self.screen: Surface = screen
-        button_height: int = 30
         padding: int = 5
         font_size: int = 20
         window_height: int = len(items) * (button_height + padding) + padding
-        longest_text: str = max(items, key=len)
-        window_width: int = len(longest_text) * font_size + 2 * padding
+        window_width: int = button_width + 2 * padding
         x: int = self.screen.get_width() // 2 - window_width // 2
         y: int = self.screen.get_height() // 2 - window_height // 2
-        self.rect = Rect(x, y, window_width, window_height)
+        inactive_color: tuple[int, int, int] = (255, 255, 255)
+        hover_color: tuple[float, ...] = tuple(
+            x * 0.85 for x in inactive_color
+        )
+
+        self.rect: Rect = Rect(x, y, window_width, window_height)
         self.background_color: tuple[int, int, int] = (34, 139, 34)
         self.buttons: list[Button] = []
+
         for i, text in enumerate(items):
             button = Button(
                 self.screen,
                 self.rect.x + padding,
                 self.rect.y + i * (button_height + padding) + padding,
-                window_width - 2 * padding,
+                button_width,
                 button_height,
                 text=text,
                 fontSize=font_size,
+                inactiveColour=inactive_color,
+                hoverColour=hover_color,
             )
             self.buttons.append(button)
 
@@ -97,7 +108,7 @@ class SelectionMenu:
             for event in events:
                 if event.type == pg.QUIT:
                     continue
-            pg.draw.rect(self.screen, self.background_color, self.rect)
+            # pg.draw.rect(self.screen, self.background_color, self.rect)
             for i, button in enumerate(self.buttons):
                 if button.clicked:
                     selected = i
@@ -115,9 +126,9 @@ class Game:
     # - next_turn and macao methods
     def __init__(self, player_number: int) -> None:
         """
-        Represents game
+        Represents a game of Makao.
 
-        :param player_number: Number of players, must be at least 2 and not greater than 4
+        :param player_number: The number of players in the game. Must be at least 2 and not greater than 4.
         :raises WrongPlayerNumber: If the number of players is not within the allowed range.
         """
         try:
@@ -250,17 +261,17 @@ class Game:
         self.take_cards(player, self.penalty_draw)
         self._penalty_draw = 0
 
-    def select_symbol(self) -> Optional[str]:
-        menu: SelectionMenu = SelectionMenu(SYMBOLS, self.window)
+    def selection(self, items: list[str], text: str = "") -> Optional[str]:
+        menu: SelectionMenu = SelectionMenu(items, self.window)
         selected_index = menu.run()
-        print(SYMBOLS[selected_index])
-        return SYMBOLS[selected_index]
+        print(items[selected_index])
+        return items[selected_index]
 
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
     ) -> None:
         """
-        Takes a specified number of cards from the deck and gives them to the player.
+        Take a specified number of cards from the deck and give them to a player.
 
         :param player: The player who will receive the cards.
         :param number: The number of cards to be taken, defaults to 1.
@@ -288,6 +299,13 @@ class Game:
     def play_card(
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
     ) -> None:
+        """
+        Play a card and update the game state.
+
+        :param played_card: The card to be played.
+        :param player: The player who played the card.
+        :return: None
+        """
         if self._current_card.can_play(played_card):
             played_card.play_effect(self)
             self.discarded_deck.add_card(self._current_card)
@@ -329,7 +347,7 @@ class Game:
 
     def handle_video_resize_event(self, event: Event) -> None:
         """
-        Handles the video resize event.
+        Handle the video resize event.
 
         :param event: The resize event.
         :return: None
@@ -349,7 +367,7 @@ class Game:
 
     def render_game(self, events: list[Event]) -> None:
         """
-        Renders the game on the screen.
+        Render the game on the screen.
 
         This method fills the window with the background color, renders the center card,
         renders the buttons, and renders the cards for each player. Finally, it updates
@@ -364,7 +382,9 @@ class Game:
             self.render_cards(player)
         for button in self._game_rects["buttons"]:
             try:
-                new_len = str(len(self.discarded_deck) if not self.deck else len(self.deck))
+                new_len = str(
+                    len(self.discarded_deck) if not self.deck else len(self.deck)
+                )
                 button.draw(new_len=new_len)
             except TypeError:
                 button.draw()
@@ -373,7 +393,7 @@ class Game:
 
     def start(self) -> None:
         """
-        Starts the game loop and handles various events such as quitting, mouse button down, and video resize.
+        Start the game loop and handle various events.
         """
         while not self.game_over:
             events: list[Event] = pg.event.get()
@@ -436,9 +456,8 @@ class Game:
             partial(self.draw_penalty, player=player),
             partial(self.macao, player=player),
         ]
-        inactiveColour: tuple[int, int, int]
-        hoverColour: tuple[float, ...]
-        pressedColour: tuple[float, ...]
+        inactive_color: tuple[int, int, int]
+        hover_color: tuple[float, ...]
         for i, (message, effect) in enumerate(zip(texts, effects)):
             try:
                 int(message)
@@ -462,9 +481,8 @@ class Game:
                 button_height = 50
                 y = self.window_height - padding - button_height
                 x = self.window_width - padding - i * button_width - (i - 1) * padding
-                inactiveColour = self.rect_bg_color
-                hoverColour = tuple(x * 0.85 for x in self.rect_bg_color)
-                pressedColour = tuple(x * 0.9 for x in self.rect_bg_color)
+                inactive_color = self.rect_bg_color
+                hover_color = tuple(x * 0.85 for x in self.rect_bg_color)
                 button = Button(
                     self.window,
                     x,
@@ -473,9 +491,8 @@ class Game:
                     button_height,
                     text=message,
                     onClick=effect,
-                    inactiveColour=inactiveColour,
-                    hoverColour=hoverColour,
-                    pressedColour=pressedColour,
+                    inactiveColour=inactive_color,
+                    hoverColour=hover_color,
                 )
             self._game_rects["buttons"].append(button)
 

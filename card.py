@@ -1,5 +1,6 @@
 from constants import SYMBOLS, VALUES
 from typing import TYPE_CHECKING, Callable, Union
+
 if TYPE_CHECKING:
     from game import Game
 
@@ -68,9 +69,12 @@ class Card:
     def get_image_name(self) -> str:
         return f"images/{self.symbol}_{self.value}.png"
 
-    def can_play(self, played_card: "Card") -> bool:
+    def can_play(self, played_card):
         """
-        Checks if card selected by the player can be played
+        Checks if the card selected by the player can be played.
+
+        :param played_card: The card that is currently played.
+        :return: True if the selected card can be played, False otherwise.
         """
         return self.symbol == played_card.symbol or self.value == played_card.value
 
@@ -85,7 +89,7 @@ class Card:
         pass
 
     def _request_value(self, game: "Game"):
-        pass
+        game.selection(VALUES[3:9])
 
     def _play_any_card(self, game: "Game"):
         pass
@@ -94,7 +98,7 @@ class Card:
         pass
 
     def _request_symbol(self, game: "Game"):
-        game.select_symbol()
+        game.selection(SYMBOLS)
 
     def __repr__(self) -> str:
         return f"Card('{self.value}', '{self.symbol}')"
