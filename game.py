@@ -1,6 +1,7 @@
 from card import Card
 from deck import Deck, DeckAlreadyEmptyError
 from players import HumanPlayer, ComputerPlayer
+from players import PlayNotAllowedError
 import pygame as pg
 from pygame.surfarray import array3d, make_surface
 from pygame import Rect, Surface, image, font
@@ -78,9 +79,7 @@ class SelectionMenu:
         x: int = self.screen.get_width() // 2 - window_width // 2
         y: int = self.screen.get_height() // 2 - window_height // 2
         inactive_color: tuple[int, int, int] = (255, 255, 255)
-        hover_color: tuple[float, ...] = tuple(
-            x * 0.85 for x in inactive_color
-        )
+        hover_color: tuple[float, ...] = tuple(x * 0.85 for x in inactive_color)
 
         self.rect: Rect = Rect(x, y, window_width, window_height)
         self.background_color: tuple[int, int, int] = (34, 139, 34)
@@ -147,11 +146,11 @@ class Game:
         for _ in range(5):
             for player in self._players:
                 self.take_cards(player)
+                player.reset_turn_status()
         self._current_card: Card = self._deck.deal()
         self._game_over: bool = False
         self._penalty_draw: int = 0
         self._current_player_index: int = 0
-        self._current_player_move_status: bool = False
 
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
@@ -195,9 +194,8 @@ class Game:
     def current_player_index(self) -> int:
         return self._current_player_index
 
-    @property
-    def current_player_move_status(self) -> bool:
-        return self._current_player_move_status
+    def increment_current_player(self) -> None:
+        self._current_player_index = (self.current_player_index + 1) % len(self.players)
 
     @property
     def penalty_draw(self) -> int:
@@ -262,9 +260,12 @@ class Game:
         self._penalty_draw = 0
 
     def selection(self, items: list[str], text: str = "") -> Optional[str]:
-        menu: SelectionMenu = SelectionMenu(items, self.window)
-        selected_index = menu.run()
-        print(items[selected_index])
+        if not self.current_player_index:
+            menu: SelectionMenu = SelectionMenu(items, self.window)
+            selected_index = menu.run()
+        else:
+            # TODO: algorithm for player to adapt to required cards
+            pass
         return items[selected_index]
 
     def take_cards(
@@ -277,6 +278,12 @@ class Game:
         :param number: The number of cards to be taken, defaults to 1.
         """
         try:
+            if self.players.index(player) != self.current_player_index:
+                return
+        except AttributeError:
+            pass
+
+        try:
             player.draw_card(self.deck, number)
         except DeckAlreadyEmptyError:
             if not self.discarded_deck:
@@ -286,15 +293,19 @@ class Game:
             self._discarded_deck = Deck(empty=True)
             player.draw_card(self.deck, number)
 
-    def macao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
-        print("clicked macao")
+        player.makao_set_reset(False)
 
-    def next_turn(self) -> None:
-        if self.current_player_move_status:
-            self._current_player_index = (self.current_player_index + 1) % len(
-                self.players
-            )
-            self._current_player_move_status = False
+    def makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        if len(player.hand) > 1 or self.players.index(player) != self.current_player_index:
+            return
+        else:
+            player.makao_set_reset(True)
+            print("clicked macao")
+
+    def next_turn(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        if player.check_moved():
+            player.reset_turn_status()
+            self.increment_current_player()
 
     def play_card(
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
@@ -306,12 +317,14 @@ class Game:
         :param player: The player who played the card.
         :return: None
         """
-        if self._current_card.can_play(played_card):
-            played_card.play_effect(self)
-            self.discarded_deck.add_card(self._current_card)
-            self._current_card = played_card
-            player.remove_card(played_card)
-            self._current_player_move_status = True
+        try:
+            if self._current_card.can_play(played_card):
+                player.play_card(played_card)
+                played_card.play_effect(self)
+                self.discarded_deck.add_card(self._current_card)
+                self._current_card = played_card
+        except PlayNotAllowedError:
+            return
 
     def check_card_click(self, mouse_pos: tuple[int, int]) -> Optional[Card]:
         """
@@ -325,6 +338,12 @@ class Game:
             if rect.collidepoint(mouse_pos):
                 return card
         return None
+
+    def game_round(self):
+        for player in self.players:
+            if player.skip_turns:
+                player.skip_turns -= 1
+                continue
 
     def handle_quit_event(self) -> None:
         self._game_over = True
@@ -389,7 +408,7 @@ class Game:
             except TypeError:
                 button.draw()
         pgw.update(events)
-        pg.display.flip()
+        pg.display.update()
 
     def start(self) -> None:
         """
@@ -401,6 +420,8 @@ class Game:
                 if event.type == pg.QUIT:
                     self.handle_quit_event()
                 elif event.type == pg.MOUSEBUTTONDOWN:
+                    if self.current_player_index:
+                        continue
                     self.handle_mouse_button_down_event()
                 elif event.type == pg.VIDEORESIZE:
                     self.handle_video_resize_event(event)
@@ -452,9 +473,9 @@ class Game:
         player: HumanPlayer = self.players[0]
         effects: list[Callable] = [
             partial(self.take_cards, player=player, number=1),
-            self.next_turn,
+            partial(self.next_turn, player=player),
             partial(self.draw_penalty, player=player),
-            partial(self.macao, player=player),
+            partial(self.makao, player=player),
         ]
         inactive_color: tuple[int, int, int]
         hover_color: tuple[float, ...]
@@ -737,5 +758,5 @@ class Game:
 
 
 if __name__ == "__main__":
-    game = Game(2)
+    game = Game(4)
     game.start()
