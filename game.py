@@ -484,7 +484,7 @@ class Game:
                 int(message)
                 button_width = self.card_width
                 button_height = self.card_height
-                x = (self.window_width - button_width) // 2 + button_width + 5
+                x = (self.window_width - button_width) // 2 + button_width + 5 - self.card_width // 2
                 y = (self.window_height - button_height) // 2
                 card_image = image.load("images/hidden.png")
                 button = ImageButton(
@@ -522,7 +522,7 @@ class Game:
         Renders current center card and hidden deck of cards that player can draw from
         """
         card_image: Surface = image.load(self._current_card.get_image_name())
-        x: int = (self.window_width - self.card_width) // 2
+        x: int = (self.window_width - self.card_width) // 2 - self.card_width // 2
         y: int = (self.window_height - self.card_height) // 2
         self.window.blit(card_image, (x, y))
 
@@ -530,8 +530,8 @@ class Game:
         """
         Renders players cards based on their number:
             0 - Human, bottom, visible cards
-            1 - Computer, top
-            2 - Computer, left
+            1 - Computer, left
+            2 - Computer, top
             3 - Computer, right
         All computers' cards are rendered upside down
 
@@ -540,7 +540,7 @@ class Game:
         """
         padding: int = 5
         position: int = self.players.index(player)
-
+        up_down_players: list[int] = [0, 2]
         if not 0 <= position <= 3:
             raise WrongPosition(position)
 
@@ -587,12 +587,13 @@ class Game:
         if position_dict[position]["rotate"]:
             card_image = pg.transform.rotate(card_image, 90)
 
-        if position in [0, 1]:
+        if position in up_down_players:
             start_x = start_coord
             y = fixed_coord
         else:
             start_y = start_coord
             x = fixed_coord
+
         for i, card in enumerate(player.hand):
             if i != 0 and i % cards_per_row == 0:
                 total_width = min(max_total_width, allowed_width)
@@ -600,26 +601,47 @@ class Game:
                 start_coord = self._calculate_start_coord(
                     position_dict[position]["start_coord"], total_width
                 )
-                if position in [0, 1]:
+                if position in up_down_players:
                     start_x = start_coord
-                    y = y - ((-1) ** position) * (card_height + padding)
+                    y = y + (position - 1) * (card_height + padding)
                 else:
                     start_y = start_coord
-                    x = x + (-1) ** (position - 2) * (card_height + padding)
+                    x = x - (position - 2) * (card_height + padding)
+
+            if position in up_down_players:
+                x = self._shift_coord(start_x, i, cards_per_row, card_width)
+            else:
+                y = self._shift_coord(start_y, i, cards_per_row, card_width)
 
             if position == 0:
-                x = self._shift_coord(start_x, i, cards_per_row, card_width)
                 card_image = self._load_scale_image(
                     card_height, card_width, card.get_image_name()
                 )
                 card_rect: Rect = Rect(x, y, card_width, card_height)
                 self._game_rects["human_cards"].append(card_rect)
-            elif position == 1:
-                x = self._shift_coord(start_x, i, cards_per_row, card_width)
-            else:
-                y = self._shift_coord(start_y, i, cards_per_row, card_width)
 
             self.window.blit(card_image, (x, y))
+        if position == self.current_player_index:
+            turn_indicator_x: int
+            turn_indicator_y: int
+
+            if position in up_down_players:
+                turn_indicator_x = self.window_width // 2
+                turn_indicator_y = (
+                    y + 15 * (position - 1) + card_height * (position // 2)
+                )
+            else:
+                turn_indicator_x = (
+                    x - 15 * (position - 2) + card_height * (position % 3)
+                )
+                turn_indicator_y = self.window_height // 2
+
+            pg.draw.circle(
+                self.window,
+                self.rect_bg_color,
+                (turn_indicator_x, turn_indicator_y),
+                10,
+            )
 
     def _calculate_num_rows(self, hand_len: int, cards_per_row: int) -> int:
         num_rows = hand_len // cards_per_row
@@ -689,8 +711,8 @@ class Game:
                 "fixed_coord": self.window_height - card_height - padding,
                 "rotate": False,
             },
-            1: {"start_coord": "x", "fixed_coord": padding, "rotate": False},
-            2: {"start_coord": "y", "fixed_coord": padding, "rotate": True},
+            1: {"start_coord": "y", "fixed_coord": padding, "rotate": True},
+            2: {"start_coord": "x", "fixed_coord": padding, "rotate": False},
             3: {
                 "start_coord": "y",
                 "fixed_coord": self.window_width - card_height - padding,
