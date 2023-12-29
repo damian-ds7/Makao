@@ -122,8 +122,8 @@ class SelectionMenu:
 class Game:
     # TODO:
     # - (Optional) Stop Macao button
-    # - New window for value / color selection window after function cards are played
     # - next_turn and macao methods
+    # - add limitation for one draw, play per turn and limitations related to playing cards on function cards
     def __init__(self, player_number: int) -> None:
         """
         Represents a game of Makao.
