@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 from deck import Deck
 from card import Card
 
@@ -66,9 +66,7 @@ class HumanPlayer:
         self._drew_card = True
 
     def play_card(self, card: Card) -> None:
-        if (self.drew_card and card is self.hand[-1] and not self.played_card) or (
-            not self.drew_card and not self.played_card
-        ):
+        if (self.drew_card and card is self.hand[-1] and not self.played_card) or not self.drew_card:
             self.hand.remove(card)
             self._played_card = True
         else:
@@ -104,3 +102,16 @@ class ComputerPlayer(HumanPlayer):
 
     def player_info(self, human_computer: str = "Computer player") -> tuple:
         return super().player_info(human_computer)
+
+    def find_best_play(self, **kwargs) -> Optional[Card]:
+        current_card: Optional[Card] = kwargs.get("center", None)
+        players: Optional[list[Union[HumanPlayer, "ComputerPlayer"]]] = kwargs.get("players", None)
+        req_symbol: str = kwargs.get("symbol", None)
+        req_value: str = kwargs.get("value", None)
+        four_played: bool = kwargs.get("four", None)
+        for card in self.hand:
+            if current_card and current_card.can_play(card):
+                if card.value in ("jack", "ace"):
+                    return None
+                return card
+        return None
