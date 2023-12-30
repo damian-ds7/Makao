@@ -43,16 +43,22 @@ class Card:
 
         self._value: str = value
         self._symbol: str = symbol
-        effect_map: dict[str, Callable] = {
-            "2": self._draw_cards,
-            "3": self._draw_cards,
-            "4": self._skip_next_player,
-            "jack": self._request_value,
-            "queen": self._play_any_card,
-            "king": self._king_draw_cards,
-            "ace": self._request_symbol,
-        }
-        self._play_effect: Callable = effect_map.get(self.value, self._no_effect)
+        if value != "king" or symbol in ["diamonds", "clubs"]:
+            effect_map: dict[str, Callable] = {
+                "2": self._draw_cards,
+                "3": self._draw_cards,
+                "4": self._skip_next_player,
+                "jack": self._request_value,
+                "queen": self._play_any_card,
+                "ace": self._request_symbol,
+            }
+            self._play_effect: Callable = effect_map.get(self.value, self._no_effect)
+        else:
+            effect_map = {
+                # "hearts": NotImplemented,
+                # "spades": NotImplemented
+            }
+            self._play_effect = effect_map.get(self.value, self._no_effect)
 
     @property
     def value(self) -> str:
