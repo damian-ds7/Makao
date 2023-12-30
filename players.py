@@ -19,6 +19,7 @@ class HumanPlayer:
         self._played_card: bool = False
         self._drew_card: bool = False
         self._skip_turns: int = 0
+        self._penalty: bool = False
 
     @property
     def makao_status(self) -> bool:
@@ -40,6 +41,14 @@ class HumanPlayer:
     def played_card(self) -> bool:
         return self._played_card
 
+    @property
+    def penalty(self) -> bool:
+        return self._penalty
+
+    @penalty.setter
+    def penalty(self, new_penalty: bool) -> None:
+        self._penalty = new_penalty
+
     def reset_turn_status(self):
         self._drew_card = False
         self._played_card = False
@@ -59,11 +68,12 @@ class HumanPlayer:
     def hand(self) -> list[Card]:
         return self._hand
 
-    def draw_card(self, deck: Deck, number: int = 1) -> None:
+    def draw_card(self, deck: Deck) -> None:
         if not self.drew_card and not self.played_card:
-            for _ in range(number):
-                self._hand.append(deck.deal())
-        self._drew_card = True
+            self._hand.append(deck.deal())
+            self._drew_card = True
+        elif self.penalty:
+            self._hand.append(deck.deal())
 
     def play_card(self, card: Card) -> None:
         if (self.drew_card and card is self.hand[-1] and not self.played_card) or not self.drew_card:
@@ -105,7 +115,8 @@ class ComputerPlayer(HumanPlayer):
 
     def find_best_play(self, **kwargs) -> Optional[Card]:
         current_card: Optional[Card] = kwargs.get("center", None)
-        players: Optional[list[Union[HumanPlayer, "ComputerPlayer"]]] = kwargs.get("players", None)
+        players: list[Union[HumanPlayer, "ComputerPlayer"]] = kwargs.get("players", None)
+        players.remove(self)
         req_symbol: str = kwargs.get("symbol", None)
         req_value: str = kwargs.get("value", None)
         four_played: bool = kwargs.get("four", None)
