@@ -199,8 +199,15 @@ class Game:
     def current_player_index(self) -> int:
         return self._current_player_index
 
-    def increment_current_player(self) -> None:
-        self._current_player_index = (self.current_player_index + 1) % len(self.players)
+    def change_current_player(self, decrement: bool = False) -> None:
+        if not decrement:
+            self._current_player_index = (self.current_player_index + 1) % len(
+                self.players
+            )
+        else:
+            self._current_player_index = (self.current_player_index - 1) % len(
+                self.players
+            )
 
     @property
     def current_card(self) -> Card:
@@ -273,11 +280,11 @@ class Game:
     def increase_penalty(self, to_add: int) -> None:
         self._penalty_draw += to_add
 
-    def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer]):
-        self._penalty_draw = (
-            len(self.deck) if len(self.deck) < self.penalty_draw else self.penalty_draw
-        )
-        self.take_cards(player, self.penalty_draw)
+    def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], number: int = 0):
+        player.penalty = True
+        draw: int = self.penalty_draw if not number else number
+        self.take_cards(player, draw)
+        player.penalty = False
         self._penalty_draw = 0
 
     def selection(self, items: list[str]) -> None:
@@ -312,14 +319,18 @@ class Game:
             pass
 
         try:
-            player.draw_card(self.deck, number)
+            while number != 0:
+                player.draw_card(self.deck)
+                number -= 1
         except DeckAlreadyEmptyError:
             if not self.discarded_deck:
                 return
             self.discarded_deck.shuffle()
             self._deck = self.discarded_deck
             self._discarded_deck = Deck(empty=True)
-            player.draw_card(self.deck, number)
+            while number != 0:
+                player.draw_card(self.deck)
+                number -= 1
 
         player.makao_set_reset(False)
 
@@ -333,12 +344,27 @@ class Game:
             player.makao_set_reset(True)
             print("clicked macao")
 
+    def stop_makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        if self.players.index(player) != self.current_player_index:
+            return
+        previous_player: Union[HumanPlayer, ComputerPlayer] = self.players[
+            self._current_player_index - 1
+        ]
+        if len(previous_player.hand) == 1 and not player.makao_status:
+            self.change_current_player(decrement=True)
+            self.draw_penalty(previous_player, 5)
+            self.change_current_player()
+
     def next_turn(self) -> None:
-        player: Union[HumanPlayer, ComputerPlayer] = self.players[self.current_player_index]
+        player: Union[HumanPlayer, ComputerPlayer] = self.players[
+            self.current_player_index
+        ]
+        # if self.penalty_draw:
+        #     self.draw_penalty(player)
         if player.check_moved() or player.skip_turns:
             player.reset_turn_status()
             self.played_card = None
-            self.increment_current_player()
+            self.change_current_player()
 
     def play_card(
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
@@ -373,29 +399,40 @@ class Game:
         return None
 
     def play_turn(self) -> None:
-        player: Union[HumanPlayer, ComputerPlayer] = self.players[self.current_player_index]
+        player: Union[HumanPlayer, ComputerPlayer] = self.players[
+            self.current_player_index
+        ]
         if player.skip_turns:
             sleep(1)
             self.next_turn()
             player.skip_turns -= 1
         if self.current_player_index:
+            self.stop_makao(player)
             sleep(1)
+            players = self.players.copy()
             game_state: dict[str, Union[list, Card]] = {
-                "players": self.players,
+                "players": players,
                 "center": self.current_card,
             }
             game_state.update(self.game_params)
             self.played_card: Optional[Card] = player.find_best_play(**game_state)  # type: ignore
             if not self.played_card:
-                player.draw_card(self.deck)
+                if self.penalty_draw:
+                    self.draw_penalty(player)
+                else:
+                    self.take_cards(player)
                 self.next_turn()
                 return
-            print(f"Current card: {self.current_card}      Played card: {self.played_card}")
+                print(
+                    f"Current card: {self.current_card}      Played card: {self.played_card}"
+                )
             self.play_card(self.played_card, player)
             self.next_turn()
         else:
             if self.played_card:
-                print(f"Current card: {self.current_card}      Played card: {self.played_card}")
+                print(
+                    f"Current card: {self.current_card}      Played card: {self.played_card}"
+                )
                 self.play_card(self.played_card, player)
 
     def handle_quit_event(self) -> None:
@@ -451,7 +488,7 @@ class Game:
         self.render_center_card()
         self.render_game_info()
         for player in self.players:
-            self.render_cards(player)
+            self.render_cards(player, all_visible=True)
         for button in self._game_rects["buttons"]:
             try:
                 new_len = str(
@@ -505,9 +542,7 @@ class Game:
         info: zip[tuple[str, Optional[str]]] = zip(info_messages, info_values)
         for i, (message, value) in enumerate(info):
             if value:
-                text: Surface = self.font.render(
-                    message + value, True, self.text_color
-                )
+                text: Surface = self.font.render(message + value, True, self.text_color)
                 width, height = text.get_size()
                 field: Rect = Rect(x, y, width, height)
                 pg.draw.rect(self.window, self.rect_bg_color, field)
@@ -589,7 +624,9 @@ class Game:
         y: int = (self.window_height - self.card_height) // 2
         self.window.blit(card_image, (x, y))
 
-    def render_cards(self, player: Union[ComputerPlayer, HumanPlayer]) -> None:
+    def render_cards(
+        self, player: Union[ComputerPlayer, HumanPlayer], all_visible: bool = False
+    ) -> None:
         """
         Renders players cards based on their number:
             0 - Human, bottom, visible cards
@@ -676,6 +713,12 @@ class Game:
             else:
                 y = self._shift_coord(start_y, i, cards_per_row, card_width)
 
+            if all_visible:
+                card_image = self._load_scale_image(
+                    card_height, card_width, card.get_image_name()
+                )
+                if position_dict[position]["rotate"]:
+                    card_image = pg.transform.rotate(card_image, 90)
             if position == 0:
                 card_image = self._load_scale_image(
                     card_height, card_width, card.get_image_name()
