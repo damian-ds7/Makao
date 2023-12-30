@@ -11,6 +11,7 @@ from pygame_widgets.button import Button  # type: ignore
 from pygame_widgets.mouse import Mouse, MouseState  # type: ignore
 from typing import Callable, Optional, Union, Any
 from functools import partial
+from time import sleep
 
 
 class WrongCoord(ValueError):
@@ -151,6 +152,10 @@ class Game:
         self._game_over: bool = False
         self._penalty_draw: int = 0
         self._current_player_index: int = 0
+        self._game_params: dict[str, Any] = {}
+        self._finished_move: bool = False
+        self._total_skip: int = 0
+        self.played_card: Optional[Card] = None
 
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
@@ -196,6 +201,22 @@ class Game:
 
     def increment_current_player(self) -> None:
         self._current_player_index = (self.current_player_index + 1) % len(self.players)
+
+    @property
+    def current_card(self) -> Card:
+        return self._current_card
+
+    @property
+    def game_params(self) -> dict[str, Any]:
+        return self._game_params
+
+    @property
+    def finished_move(self) -> bool:
+        return self._finished_move
+
+    @property
+    def total_skip(self) -> int:
+        return self._total_skip
 
     @property
     def penalty_draw(self) -> int:
@@ -259,14 +280,21 @@ class Game:
         self.take_cards(player, self.penalty_draw)
         self._penalty_draw = 0
 
-    def selection(self, items: list[str], text: str = "") -> Optional[str]:
+    def selection(self, items: list[str]) -> None:
         if not self.current_player_index:
             menu: SelectionMenu = SelectionMenu(items, self.window)
-            selected_index = menu.run()
+            selected_index: int = menu.run()
         else:
             # TODO: algorithm for player to adapt to required cards
             pass
-        return items[selected_index]
+
+        if self.current_card.value == "jack":
+            self.game_params.update({"value": items[selected_index]})
+        else:
+            self.game_params.update({"symbol": items[selected_index]})
+
+    def increment_skip(self) -> None:
+        self._total_skip += 1
 
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
@@ -296,15 +324,20 @@ class Game:
         player.makao_set_reset(False)
 
     def makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
-        if len(player.hand) > 1 or self.players.index(player) != self.current_player_index:
+        if (
+            len(player.hand) > 1
+            or self.players.index(player) != self.current_player_index
+        ):
             return
         else:
             player.makao_set_reset(True)
             print("clicked macao")
 
-    def next_turn(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
-        if player.check_moved():
+    def next_turn(self) -> None:
+        player: Union[HumanPlayer, ComputerPlayer] = self.players[self.current_player_index]
+        if player.check_moved() or player.skip_turns:
             player.reset_turn_status()
+            self.played_card = None
             self.increment_current_player()
 
     def play_card(
@@ -318,11 +351,11 @@ class Game:
         :return: None
         """
         try:
-            if self._current_card.can_play(played_card):
+            if self.current_card.can_play(played_card, **self.game_params):
                 player.play_card(played_card)
-                played_card.play_effect(self)
-                self.discarded_deck.add_card(self._current_card)
+                self.discarded_deck.add_card(self.current_card)
                 self._current_card = played_card
+                played_card.play_effect(self)
         except PlayNotAllowedError:
             return
 
@@ -339,30 +372,50 @@ class Game:
                 return card
         return None
 
-    def game_round(self):
-        for player in self.players:
-            if player.skip_turns:
-                player.skip_turns -= 1
-                continue
+    def play_turn(self) -> None:
+        player: Union[HumanPlayer, ComputerPlayer] = self.players[self.current_player_index]
+        if player.skip_turns:
+            sleep(1)
+            self.next_turn()
+            player.skip_turns -= 1
+        if self.current_player_index:
+            sleep(1)
+            game_state: dict[str, Union[list, Card]] = {
+                "players": self.players,
+                "center": self.current_card,
+            }
+            game_state.update(self.game_params)
+            self.played_card: Optional[Card] = player.find_best_play(**game_state)  # type: ignore
+            if not self.played_card:
+                player.draw_card(self.deck)
+                self.next_turn()
+                return
+            print(f"Current card: {self.current_card}      Played card: {self.played_card}")
+            self.play_card(self.played_card, player)
+            self.next_turn()
+        else:
+            if self.played_card:
+                print(f"Current card: {self.current_card}      Played card: {self.played_card}")
+                self.play_card(self.played_card, player)
 
     def handle_quit_event(self) -> None:
         self._game_over = True
 
-    def handle_mouse_button_down_event(self) -> None:
+    def handle_mouse_button_down_event(self) -> Optional[Card]:
         """
         Handles the mouse button down event.
 
         This method checks if the right mouse button is pressed. If not, it gets the current mouse position.
-        It then checks if a button or a card is clicked and performs the corresponding action.
+        It then checks if a button or a card is clicked and assigns clicked card to played_card attribute
 
         :return: None
         """
         if pg.mouse.get_pressed()[2]:
-            return
+            return None
         mouse_pos: tuple[int, int] = pg.mouse.get_pos()
-        if played_card := self.check_card_click(mouse_pos):
-            print(f"Current card: {self._current_card}      Played card: {played_card}")
-            self.play_card(played_card, self.players[0])
+        if card := self.check_card_click(mouse_pos):
+            return card
+        return None
 
     def handle_video_resize_event(self, event: Event) -> None:
         """
@@ -422,10 +475,13 @@ class Game:
                 elif event.type == pg.MOUSEBUTTONDOWN:
                     if self.current_player_index:
                         continue
-                    self.handle_mouse_button_down_event()
+                    self.played_card = self.handle_mouse_button_down_event()
+                    self.play_turn()
                 elif event.type == pg.VIDEORESIZE:
                     self.handle_video_resize_event(event)
             self.render_game(events)
+            if self.current_player_index:
+                self.play_turn()
         pg.quit()
 
     def render_game_info(self) -> None:
@@ -438,17 +494,19 @@ class Game:
             "Penalty draw sum: ",
             "Required value: ",
             "Required symbol: ",
+            "Total turns to skip: ",
         ]
-        info_values: list[Any] = [
-            self.penalty_draw if self.penalty_draw else None,
-            None,
-            None,
+        info_values: list[Optional[str]] = [
+            str(self.penalty_draw) if self.penalty_draw else None,
+            self.game_params.get("value", None),
+            self.game_params.get("symbol", None),
+            str(self.total_skip) if self.total_skip else None,
         ]
-        info: zip[tuple[str, Any]] = zip(info_messages, info_values)
+        info: zip[tuple[str, Optional[str]]] = zip(info_messages, info_values)
         for i, (message, value) in enumerate(info):
             if value:
                 text: Surface = self.font.render(
-                    message + str(value), True, self.text_color
+                    message + value, True, self.text_color
                 )
                 width, height = text.get_size()
                 field: Rect = Rect(x, y, width, height)
@@ -473,7 +531,7 @@ class Game:
         player: HumanPlayer = self.players[0]
         effects: list[Callable] = [
             partial(self.take_cards, player=player, number=1),
-            partial(self.next_turn, player=player),
+            partial(self.next_turn),
             partial(self.draw_penalty, player=player),
             partial(self.makao, player=player),
         ]
@@ -484,7 +542,12 @@ class Game:
                 int(message)
                 button_width = self.card_width
                 button_height = self.card_height
-                x = (self.window_width - button_width) // 2 + button_width + 5 - self.card_width // 2
+                x = (
+                    (self.window_width - button_width) // 2
+                    + button_width
+                    + 5
+                    - self.card_width // 2
+                )
                 y = (self.window_height - button_height) // 2
                 card_image = image.load("images/hidden.png")
                 button = ImageButton(
@@ -521,7 +584,7 @@ class Game:
         """
         Renders current center card and hidden deck of cards that player can draw from
         """
-        card_image: Surface = image.load(self._current_card.get_image_name())
+        card_image: Surface = image.load(self.current_card.get_image_name())
         x: int = (self.window_width - self.card_width) // 2 - self.card_width // 2
         y: int = (self.window_height - self.card_height) // 2
         self.window.blit(card_image, (x, y))
