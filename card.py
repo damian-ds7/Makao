@@ -69,35 +69,48 @@ class Card:
     def get_image_name(self) -> str:
         return f"images/{self.symbol}_{self.value}.png"
 
-    def can_play(self, played_card):
+    def can_play(self, played_card, **kwargs) -> bool:
         """
         Checks if the card selected by the player can be played.
 
         :param played_card: The card that is currently played.
         :return: True if the selected card can be played, False otherwise.
         """
+        req_symbol: str = kwargs.get("symbol", None)
+        req_value: str = kwargs.get("value", None)
+        four_played: bool = kwargs.get("four", None)
+
+        if self.value == "4" and played_card.value == "4":
+            return True
+        if req_value and req_value == played_card.value:
+            return True
+        if req_symbol and req_symbol == played_card.symbol:
+            return True
+        if four_played and played_card.value == "4":
+            return True
+
         return self.symbol == played_card.symbol or self.value == played_card.value
 
     def _no_effect(self, game: "Game"):
         pass
 
-    def _draw_cards(self, game: "Game"):
+    def _draw_cards(self, game: "Game") -> None:
         number = int(self.value)
         game.increase_penalty(number)
 
-    def _skip_next_player(self, game: "Game"):
-        pass
+    def _skip_next_player(self, game: "Game") -> None:
+        game.increment_skip()
 
-    def _request_value(self, game: "Game"):
+    def _request_value(self, game: "Game") -> None:
         game.selection(VALUES[3:9])
 
-    def _play_any_card(self, game: "Game"):
+    def _play_any_card(self, game: "Game") -> None:
         pass
 
-    def _king_draw_cards(self, game: "Game"):
+    def _king_draw_cards(self, game: "Game") -> None:
         pass
 
-    def _request_symbol(self, game: "Game"):
+    def _request_symbol(self, game: "Game") -> None:
         game.selection(SYMBOLS)
 
     def __repr__(self) -> str:
