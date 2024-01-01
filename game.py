@@ -1,4 +1,5 @@
 from card import Card
+from constants import SYMBOLS
 from deck import Deck, DeckAlreadyEmptyError
 from players import HumanPlayer, ComputerPlayer
 from players import PlayNotAllowedError
@@ -146,9 +147,9 @@ class Game:
         self._discarded_deck: Deck = Deck(empty=True)
         for _ in range(5):
             for player in self._players:
-                self.take_cards(player)
+                player.draw_card(self.deck)
                 player.reset_turn_status()
-        self._current_card: Card = self._deck.deal()
+        self._center_card: Card = self._deck.deal()
         self._game_over: bool = False
         self._penalty_draw: int = 0
         self._current_player_index: int = 0
@@ -172,7 +173,6 @@ class Game:
         self._window: Surface = pg.display.set_mode(
             (self._window_width, self._window_height)
         )
-
         self.render_buttons()
 
     @property
@@ -210,8 +210,8 @@ class Game:
             )
 
     @property
-    def current_card(self) -> Card:
-        return self._current_card
+    def center_caard(self) -> Card:
+        return self._center_card
 
     @property
     def game_params(self) -> dict[str, Any]:
@@ -277,15 +277,46 @@ class Game:
     def font_size(self) -> int:
         return self._font_size
 
+    def get_previous_player(self) -> Union[HumanPlayer, ComputerPlayer]:
+        return self.players[self.current_player_index - 1]
+
+    def get_current_player(self) -> Union[HumanPlayer, ComputerPlayer]:
+        return self.players[self.current_player_index]
+
     def increase_penalty(self, to_add: int) -> None:
         self._penalty_draw += to_add
 
-    def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], number: int = 0):
+    def reset_penalty(self):
+        self._penalty_draw = 0
+
+    def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], **kwargs):
         player.penalty = True
+        number: int = kwargs.get("number", None)
         draw: int = self.penalty_draw if not number else number
+        if not draw:
+            return
+        self.reset_penalty()
         self.take_cards(player, draw)
         player.penalty = False
-        self._penalty_draw = 0
+
+    def king_played(self, **kwargs) -> None:
+        previous: bool = kwargs.get("previous", None)
+        player = self.get_current_player()
+        self.game_params.update({"king": True})
+        self.increase_penalty(5)
+        if previous:
+            player.skip_turns += 1
+            player.played_king = True
+        self.next_turn(backwards=previous)
+
+    def reset_king(self) -> None:
+        if self.game_params.get("king", None):
+            self.game_params.pop("king")
+
+    def block_king(self) -> None:
+        if self.game_params.get("king", None):
+            self.reset_penalty()
+            self.game_params.pop("king")
 
     def selection(self, items: list[str]) -> None:
         if not self.current_player_index:
@@ -295,13 +326,22 @@ class Game:
             # TODO: algorithm for player to adapt to required cards
             pass
 
-        if self.current_card.value == "jack":
-            self.game_params.update({"value": items[selected_index]})
+        if self.center_caard.value == "jack":
+            self.game_params.update({"value": (items[selected_index], 4)})
         else:
-            self.game_params.update({"symbol": items[selected_index]})
+            self.game_params.update({"symbol": (items[selected_index], 1)})
 
     def increment_skip(self) -> None:
         self._total_skip += 1
+        val = self.game_params.get("skip", None)
+        if val:
+            self.game_params.update({"four": val + 1})
+        else:
+            self.game_params.update({"four": 1})
+
+    def reset_skip(self) -> None:
+        if self.game_params.get("skip", None):
+            self.game_params.pop("skip")
 
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
@@ -311,12 +351,11 @@ class Game:
 
         :param player: The player who will receive the cards.
         :param number: The number of cards to be taken, defaults to 1.
-        """
-        try:
-            if self.players.index(player) != self.current_player_index:
-                return
-        except AttributeError:
-            pass
+    """
+        if self.players.index(player) != self.current_player_index or self.penalty_draw:
+            return
+
+        number = self.penalty_draw if self.penalty_draw else number
 
         try:
             while number != 0:
@@ -347,24 +386,40 @@ class Game:
     def stop_makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
         if self.players.index(player) != self.current_player_index:
             return
-        previous_player: Union[HumanPlayer, ComputerPlayer] = self.players[
-            self._current_player_index - 1
-        ]
+        previous_player: Union[HumanPlayer, ComputerPlayer] = self.get_previous_player()
         if len(previous_player.hand) == 1 and not player.makao_status:
             self.change_current_player(decrement=True)
-            self.draw_penalty(previous_player, 5)
+            self.draw_penalty(previous_player, number=5)
             self.change_current_player()
 
-    def next_turn(self) -> None:
-        player: Union[HumanPlayer, ComputerPlayer] = self.players[
-            self.current_player_index
+    def update_req_params(self) -> None:
+        reqs: list[Optional[tuple[str, int]]] = [
+            self.game_params.get("symbol", None),
+            self.game_params.get("value", None),
         ]
+        for req in reqs:
+            if req:
+                turns_left: int = req[1]
+                turns_left -= 1
+                req = (req[0], turns_left)
+                key = "symbol" if req[0] in SYMBOLS else "value"
+                if not turns_left:
+                    self.game_params.pop(key)
+                else:
+                    self.game_params.update({key: req})
+
+    def next_turn(self, backwards: bool = False) -> None:
+        player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
         # if self.penalty_draw:
         #     self.draw_penalty(player)
+        if total_skip := self.game_params.get("four", None):
+            player.skip_turns = total_skip
+            self.reset_skip()
         if player.check_moved() or player.skip_turns:
             player.reset_turn_status()
             self.played_card = None
-            self.change_current_player()
+            self.update_req_params()
+            self.change_current_player(decrement=backwards)
 
     def play_card(
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
@@ -377,10 +432,10 @@ class Game:
         :return: None
         """
         try:
-            if self.current_card.can_play(played_card, **self.game_params):
+            if self.center_caard.can_play(played_card, **self.game_params):
                 player.play_card(played_card)
-                self.discarded_deck.add_card(self.current_card)
-                self._current_card = played_card
+                self.discarded_deck.add_card(self.center_caard)
+                self._center_card = played_card
                 played_card.play_effect(self)
         except PlayNotAllowedError:
             return
@@ -399,11 +454,11 @@ class Game:
         return None
 
     def play_turn(self) -> None:
-        player: Union[HumanPlayer, ComputerPlayer] = self.players[
-            self.current_player_index
-        ]
+        player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
         if player.skip_turns:
-            sleep(1)
+            if player.played_king:
+                self.draw_penalty(player)
+                player.played_king = False
             self.next_turn()
             player.skip_turns -= 1
         if self.current_player_index:
@@ -412,28 +467,32 @@ class Game:
             players = self.players.copy()
             game_state: dict[str, Union[list, Card]] = {
                 "players": players,
-                "center": self.current_card,
+                "center": self.center_caard,
             }
             game_state.update(self.game_params)
             self.played_card: Optional[Card] = player.find_best_play(**game_state)  # type: ignore
             if not self.played_card:
-                if self.penalty_draw:
+                if self.game_params.get("four", None):
+                    pass
+                elif self.penalty_draw:
                     self.draw_penalty(player)
                 else:
                     self.take_cards(player)
                 self.next_turn()
                 return
-                print(
-                    f"Current card: {self.current_card}      Played card: {self.played_card}"
-                )
             self.play_card(self.played_card, player)
+            print(
+                f"Current card: {self.center_caard}      Played card:"
+                f" {self.played_card}"
+            )
             self.next_turn()
         else:
             if self.played_card:
-                print(
-                    f"Current card: {self.current_card}      Played card: {self.played_card}"
-                )
                 self.play_card(self.played_card, player)
+                print(
+                    f"Current card: {self.center_caard}      Played card:"
+                    f" {self.played_card}"
+                )
 
     def handle_quit_event(self) -> None:
         self._game_over = True
@@ -533,16 +592,18 @@ class Game:
             "Required symbol: ",
             "Total turns to skip: ",
         ]
-        info_values: list[Optional[str]] = [
+        info_values: list[Any] = [
             str(self.penalty_draw) if self.penalty_draw else None,
             self.game_params.get("value", None),
             self.game_params.get("symbol", None),
             str(self.total_skip) if self.total_skip else None,
         ]
         info: zip[tuple[str, Optional[str]]] = zip(info_messages, info_values)
-        for i, (message, value) in enumerate(info):
-            if value:
-                text: Surface = self.font.render(message + value, True, self.text_color)
+        for i, (message, param) in enumerate(info):
+            if param:
+                text: Surface = self.font.render(
+                    message + param[0], True, self.text_color
+                )
                 width, height = text.get_size()
                 field: Rect = Rect(x, y, width, height)
                 pg.draw.rect(self.window, self.rect_bg_color, field)
@@ -619,7 +680,7 @@ class Game:
         """
         Renders current center card and hidden deck of cards that player can draw from
         """
-        card_image: Surface = image.load(self.current_card.get_image_name())
+        card_image: Surface = image.load(self.center_caard.get_image_name())
         x: int = (self.window_width - self.card_width) // 2 - self.card_width // 2
         y: int = (self.window_height - self.card_height) // 2
         self.window.blit(card_image, (x, y))
