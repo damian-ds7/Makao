@@ -335,9 +335,9 @@ class Game:
         self._total_skip += 1
         val = self.game_params.get("skip", None)
         if val:
-            self.game_params.update({"four": val + 1})
+            self.game_params.update({"skip": val + 1})
         else:
-            self.game_params.update({"four": 1})
+            self.game_params.update({"skip": 1})
 
     def reset_skip(self) -> None:
         if self.game_params.get("skip", None):
@@ -412,7 +412,7 @@ class Game:
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
         # if self.penalty_draw:
         #     self.draw_penalty(player)
-        if total_skip := self.game_params.get("four", None):
+        if total_skip := self.game_params.get("skip", None):
             player.skip_turns = total_skip
             self.reset_skip()
         if player.check_moved() or player.skip_turns:
@@ -472,7 +472,7 @@ class Game:
             game_state.update(self.game_params)
             self.played_card: Optional[Card] = player.find_best_play(**game_state)  # type: ignore
             if not self.played_card:
-                if self.game_params.get("four", None):
+                if self.game_params.get("skip", None):
                     pass
                 elif self.penalty_draw:
                     self.draw_penalty(player)
