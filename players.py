@@ -16,9 +16,9 @@ class HumanPlayer:
         self._hand: list[Card] = []
         self._rank: Optional[int] = None
         self._makao_status: bool = False
-        self._played_card: bool = False
         self._cards_played: int = 0
         self._drew_card: bool = False
+        self._drew_penalty: bool = False
         self._skip_turns: int = 0
         self._penalty: bool = False
         self._played_king: bool = False
@@ -38,19 +38,19 @@ class HumanPlayer:
     @property
     def drew_card(self) -> bool:
         """
+        Returns True if player has drawn penalty
+        """
+        return self._drew_penalty
+
+    @property
+    def drew_penalty(self) -> bool:
+        """
         Returns True if player has played at least one car
         """
         return self._drew_card
 
     @property
-    def played_card(self) -> bool:
-        """
-        Returns True if player has played at least one card
-        """
-        return self._played_card
-
-    @property
-    def card_played(self) -> int:
+    def cards_played(self) -> int:
         """
         Returns current amount of cards played in one turn
         """
@@ -80,10 +80,11 @@ class HumanPlayer:
 
     def reset_turn_status(self):
         self._drew_card = False
-        self._played_card = False
+        self._cards_played = 0
+        self._drew_penalty = False
 
     def check_moved(self) -> bool:
-        return self.drew_card or self.played_card
+        return self.drew_card or bool(self.cards_played) or self.drew_penalty
 
     @property
     def skip_turns(self) -> int:
@@ -99,15 +100,16 @@ class HumanPlayer:
 
     def draw_card(self, deck: Deck) -> None:
         if self.penalty:
+            self._drew_penalty = True
             self._hand.append(deck.deal())
-        elif not self.drew_card and not self.played_card:
+        elif not self.drew_card and not self.cards_played:
             self._hand.append(deck.deal())
             self._drew_card = True
 
     def play_card(self, card: Card) -> None:
-        if (self.drew_card and card is self.hand[-1] and not self.played_card) or not self.drew_card:
+        if (self.drew_card and card is self.hand[-1] and not self.cards_played) or not self.drew_card:
             self.hand.remove(card)
-            self._played_card = True
+            self._cards_played += 1
         else:
             raise PlayNotAllowedError("You cannot play this card")
 
@@ -148,7 +150,9 @@ class ComputerPlayer(HumanPlayer):
         players.remove(self)
         req_suit: tuple = kwargs.get("suit", None)
         req_value: tuple = kwargs.get("value", None)
-        four_played: bool = kwargs.get("four", None)
+        four_played: bool = kwargs.get("skip", None)
+        king_played: bool = kwargs.get("king", None)
+        penalty: int = kwargs.get("penalty", None)
         for card in self.hand:
             if center_card and center_card.can_play(card, **kwargs):
                 if card.value in ("jack", "ace"):
