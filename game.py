@@ -156,11 +156,9 @@ class Game:
                 player.reset_turn_status()
         self._center_card: Card = self._deck.deal()
         self._game_over: bool = False
-        self._penalty_draw: int = 0
         self._current_player_index: int = 0
         self._game_params: dict[str, Any] = {}
         self._finished_move: bool = False
-        self._total_skip: int = 0
         self.played_card: Optional[Card] = None
 
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
@@ -228,11 +226,19 @@ class Game:
 
     @property
     def total_skip(self) -> int:
-        return self._total_skip
+        return self.game_params.get("skip", None) or 0
+
+    def increment_skip(self) -> None:
+        val = self.game_params.get("skip", None) or 0
+        self.game_params.update({"skip": val + 1})
+
+    def reset_skip(self) -> None:
+        if self.game_params.get("skip", None):
+            self.game_params.pop("skip")
 
     @property
-    def penalty_draw(self) -> int:
-        return self._penalty_draw
+    def get_penalty(self) -> int:
+        return self.game_params.get("penalty", None) or 0
 
     @property
     def card_width(self) -> int:
@@ -331,22 +337,11 @@ class Game:
             # TODO: algorithm for player to adapt to required cards
             pass
 
-        if self.center_caard.value == "jack":
-            self.game_params.update({"value": (items[selected_index], 4)})
+        #  number of turns in tuples in one more than in the rules to account for casting player's next_turn()
+        if self.center_card.value == "jack":
+            self.game_params.update({"value": (items[selected_index], 5)})
         else:
-            self.game_params.update({"symbol": (items[selected_index], 1)})
-
-    def increment_skip(self) -> None:
-        self._total_skip += 1
-        val = self.game_params.get("skip", None)
-        if val:
-            self.game_params.update({"skip": val + 1})
-        else:
-            self.game_params.update({"skip": 1})
-
-    def reset_skip(self) -> None:
-        if self.game_params.get("skip", None):
-            self.game_params.pop("skip")
+            self.game_params.update({"suit": (items[selected_index], 2)})
 
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
@@ -356,11 +351,11 @@ class Game:
 
         :param player: The player who will receive the cards.
         :param number: The number of cards to be taken, defaults to 1.
-    """
-        if self.players.index(player) != self.current_player_index or self.penalty_draw:
+        """
+        if self.players.index(player) != self.current_player_index:
             return
 
-        number = self.penalty_draw if self.penalty_draw else number
+        number = self.get_penalty if self.get_penalty else number
 
         try:
             while number != 0:
@@ -398,8 +393,17 @@ class Game:
             self.change_current_player()
 
     def update_req_params(self) -> None:
+        """
+        Update the required parameters for the game.
+
+        This method updates the required parameters for the game based on the current game parameters.
+        It decreases the number of turns left for each required parameter by 1, and removes the parameter
+        if the number of turns left becomes 0.
+
+        :return: None
+        """
         reqs: list[Optional[tuple[str, int]]] = [
-            self.game_params.get("symbol", None),
+            self.game_params.get("suit", None),
             self.game_params.get("value", None),
         ]
         for req in reqs:
@@ -407,7 +411,7 @@ class Game:
                 turns_left: int = req[1]
                 turns_left -= 1
                 req = (req[0], turns_left)
-                key = "symbol" if req[0] in SYMBOLS else "value"
+                key = "suit" if req[0] in SUITS else "value"
                 if not turns_left:
                     self.game_params.pop(key)
                 else:
@@ -417,8 +421,8 @@ class Game:
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
         # if self.penalty_draw:
         #     self.draw_penalty(player)
-        if total_skip := self.game_params.get("skip", None):
-            player.skip_turns = total_skip
+        if self.total_skip and not self.played_card:
+            player.skip_turns = self.total_skip
             self.reset_skip()
         if player.check_moved() or player.skip_turns:
             player.reset_turn_status()
@@ -437,9 +441,9 @@ class Game:
         :return: None
         """
         try:
-            if self.center_caard.can_play(played_card, **self.game_params):
+            if self.center_card.can_play(played_card, **self.game_params):
                 player.play_card(played_card)
-                self.discarded_deck.add_card(self.center_caard)
+                self.discarded_deck.add_card(self.center_card)
                 self._center_card = played_card
                 played_card.play_effect(self)
         except PlayNotAllowedError:
@@ -594,13 +598,13 @@ class Game:
         info_messages: list[str] = [
             "Penalty draw sum: ",
             "Required value: ",
-            "Required symbol: ",
+            "Required suit: ",
             "Total turns to skip: ",
         ]
         info_values: list[Any] = [
-            str(self.penalty_draw) if self.penalty_draw else None,
+            str(self.get_penalty) if self.get_penalty else None,
             self.game_params.get("value", None),
-            self.game_params.get("symbol", None),
+            self.game_params.get("suit", None),
             str(self.total_skip) if self.total_skip else None,
         ]
         info: zip[tuple[str, Optional[str]]] = zip(info_messages, info_values)
@@ -659,7 +663,7 @@ class Game:
                     button_height,
                     text=message,
                     image=card_image,
-                    onClick=effect,
+                    onRelease=effect,
                 )
             except ValueError:
                 button_width = 90
@@ -675,7 +679,7 @@ class Game:
                     button_width,
                     button_height,
                     text=message,
-                    onClick=effect,
+                    onRelease=effect,
                     inactiveColour=inactive_color,
                     hoverColour=hover_color,
                 )
@@ -685,7 +689,7 @@ class Game:
         """
         Renders current center card and hidden deck of cards that player can draw from
         """
-        card_image: Surface = image.load(self.center_caard.get_image_name())
+        card_image: Surface = image.load(self.center_card.get_image_name())
         x: int = (self.window_width - self.card_width) // 2 - self.card_width // 2
         y: int = (self.window_height - self.card_height) // 2
         self.window.blit(card_image, (x, y))
@@ -709,6 +713,8 @@ class Game:
         up_down_players: list[int] = [0, 2]
         if not 0 <= position <= 3:
             raise WrongPosition(position)
+        if not player:
+            return
 
         card_width: int
         card_height: int
