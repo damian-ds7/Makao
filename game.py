@@ -158,8 +158,9 @@ class Game:
         self._game_over: bool = False
         self._current_player_index: int = 0
         self._game_params: dict[str, Any] = {}
-        self._finished_move: bool = False
+        # self._finished_move: bool = False
         self.played_card: Optional[Card] = None
+        self._finished_players: list[Union[HumanPlayer, ComputerPlayer]] = []
 
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
@@ -181,6 +182,17 @@ class Game:
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
         return self._players
+
+    @property
+    def finished_players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
+        return self._finished_players
+
+    def player_finish(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        self.finished_players.append(player)
+
+    def check_if_finished(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        if len(player.hand) == 0:
+            self.player_finish(player)
 
     @property
     def deck(self) -> Deck:
@@ -220,12 +232,12 @@ class Game:
     def game_params(self) -> dict[str, Any]:
         return self._game_params
 
-    @property
-    def finished_move(self) -> bool:
-        return self._finished_move
+    # @property
+    # def finished_move(self) -> bool:
+    #     return self._finished_move
 
     @property
-    def total_skip(self) -> int:
+    def get_skip(self) -> int:
         return self.game_params.get("skip", None) or 0
 
     def increment_skip(self) -> None:
@@ -301,9 +313,8 @@ class Game:
     def reset_penalty(self):
         self.game_params.pop("penalty")
 
-    def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], **kwargs):
+    def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], number: int = 0):
         player.penalty = True
-        number: int = kwargs.get("number", None)
         draw: int = self.get_penalty if not number else number
         if not draw:
             return
@@ -324,18 +335,18 @@ class Game:
         self.game_params.update({"king": True})
         self.increase_penalty(5)
         if previous:
-            player.skip_turns += 1
+            player.skip_turns += 2  # Additional turn added to compensate for next_turn
             player.played_king = True
         self.next_turn(backwards=previous)
 
-    def reset_king(self) -> None:
+    def reset_king(self, reset: bool = False) -> None:
         if self.game_params.get("king", None):
             self.game_params.pop("king")
+            if reset:
+                self.reset_penalty()
 
     def block_king(self) -> None:
-        if self.game_params.get("king", None):
-            self.reset_penalty()
-            self.game_params.pop("king")
+        self.reset_king(True)
 
     def selection(self, items: list[str]) -> None:
         """
@@ -356,6 +367,7 @@ class Game:
             self.game_params.update({"value": (items[selected_index], 5)})
         else:
             self.game_params.update({"suit": (items[selected_index], 2)})
+        self.next_turn()
 
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
@@ -366,10 +378,12 @@ class Game:
         :param player: The player who will receive the cards.
         :param number: The number of cards to be taken, defaults to 1.
         """
-        if self.players.index(player) != self.current_player_index:
+        if self.players.index(player) != self.current_player_index or self.game_params.get("skip", None):
             return
 
-        number = self.get_penalty if self.get_penalty else number
+        if self.get_penalty:
+            self.draw_penalty(player)
+            return
 
         try:
             while number != 0:
@@ -397,11 +411,17 @@ class Game:
             player.makao_set_reset(True)
             print("clicked macao")
 
+    def makao_out(self, player: Union[HumanPlayer, ComputerPlayer]):
+        if len(player.hand) != 0:
+            return
+        self.makao(player)
+        self.next_turn()
+
     def stop_makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
         if self.players.index(player) != self.current_player_index:
             return
         previous_player: Union[HumanPlayer, ComputerPlayer] = self.get_previous_player()
-        if len(previous_player.hand) == 1 and not player.makao_status:
+        if len(previous_player.hand) in [0, 1] and not player.makao_status:
             self.change_current_player(decrement=True)
             self.draw_penalty(previous_player, number=5)
             self.change_current_player()
@@ -435,13 +455,14 @@ class Game:
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
         # if self.penalty_draw:
         #     self.draw_penalty(player)
-        if self.total_skip and not self.played_card:
-            player.skip_turns = self.total_skip
+        self.check_if_finished(player)
+        if self.get_skip and not self.played_card:
+            player.skip_turns = self.get_skip
             self.reset_skip()
         if player.check_moved() or player.skip_turns:
+            player.skip_turns -= 1 if player.skip_turns else 0
             player.reset_turn_status()
             self.played_card = None
-            self.update_req_params()
             self.change_current_player(decrement=backwards)
 
     def play_card(
@@ -456,7 +477,14 @@ class Game:
         """
         try:
             if self.center_card.can_play(played_card, **self.game_params):
+                if player.cards_played == 4 and len(player.hand) == 1:
+                    raise PlayNotAllowedError(
+                        "If played card is the last card in deck only up to 3 cards can"
+                        " be played before"
+                    )
                 player.play_card(played_card)
+                if player.cards_played == 1:
+                    self.update_req_params()
                 self.discarded_deck.add_card(self.center_card)
                 self._center_card = played_card
                 played_card.play_effect(self)
@@ -476,7 +504,7 @@ class Game:
                 return card
         return None
 
-    def play_turn(self) -> None:
+    def play_turn(self, **kwargs) -> None:
         """
         Plays a turn in the game.
 
@@ -487,6 +515,9 @@ class Game:
         :return: None
         """
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
+        if player in self.finished_players:
+            self.next_turn()
+            return
         if player.skip_turns:
             if player.played_king:
                 self.draw_penalty(player)
@@ -504,23 +535,25 @@ class Game:
             game_state.update(self.game_params)
             self.played_card: Optional[Card] = player.find_best_play(**game_state)  # type: ignore
             if not self.played_card:
-                if self.game_params.get("skip", None):
-                    pass
-                elif self.get_penalty:
+                if self.get_penalty:
                     self.draw_penalty(player)
                 else:
                     self.take_cards(player)
                 self.next_turn()
+                sleep(1)
                 return
             print(
-                f"Current card: {self.center_card}      Played card:"
-                f" {self.played_card}"
+                f"Current card: {self.center_card}      Played card: {self.played_card}"
             )
             self.play_card(self.played_card, player)
+            if len(player.hand) == 1:
+                self.makao(player)
             self.next_turn()
             sleep(1)
         else:
-            if self.played_card:
+            played_card: Optional[Card] = kwargs.get("played_card", None)
+            if played_card:
+                self.played_card = played_card
                 print(
                     f"Current card: {self.center_card}      Played card:"
                     f" {self.played_card}"
@@ -604,13 +637,16 @@ class Game:
                 elif event.type == pg.MOUSEBUTTONDOWN:
                     if self.current_player_index:
                         continue
-                    self.played_card = self.handle_mouse_button_down_event()
-                    self.play_turn()
+                    played_card: Optional[Card] = self.handle_mouse_button_down_event()
+                    self.play_turn(played_card=played_card)
                 elif event.type == pg.VIDEORESIZE:
                     self.handle_video_resize_event(event)
-            self.render_game(events)
             if self.current_player_index:
                 self.play_turn()
+            self.render_game(events)
+            if len(self.finished_players) == len(self.players) - 1:
+                self._game_over = True
+
         pg.quit()
 
     def render_game_info(self) -> None:
@@ -635,7 +671,7 @@ class Game:
             str(self.get_penalty) if self.get_penalty else None,
             self.game_params.get("value", None),
             self.game_params.get("suit", None),
-            str(self.total_skip) if self.total_skip else None,
+            str(self.get_skip) if self.get_skip else None,
         ]
         info: zip[tuple[str, Optional[str]]] = zip(info_messages, info_values)
         for i, (message, param) in enumerate(info):
@@ -662,12 +698,19 @@ class Game:
         button_height: int
         padding: int = 5
         deck_len: int = len(self.discarded_deck) if not self.deck else len(self.deck)
-        texts: list[str] = [str(deck_len), "NEXT", "PENALTY", "MAKAO!"]
+        texts: list[str] = [
+            str(deck_len),
+            "NEXT",
+            "PENALTY",
+            "MAKAO \nAND OUT",
+            "MAKAO!",
+        ]
         player: HumanPlayer = self.players[0]
         effects: list[Callable] = [
             partial(self.take_cards, player=player, number=1),
             partial(self.next_turn),
             partial(self.draw_penalty, player=player),
+            partial(self.makao_out, player=player),
             partial(self.makao, player=player),
         ]
         inactive_color: tuple[int, int, int]
@@ -698,8 +741,9 @@ class Game:
             except ValueError:
                 button_width = 90
                 button_height = 50
-                y = self.window_height - padding - button_height
-                x = self.window_width - padding - i * button_width - (i - 1) * padding
+                y = self.window_height - padding - button_height - (padding + button_height) * (i > 2)
+                mul: int = (i - 2) if i > 2 else i
+                x = self.window_width - padding - mul * button_width - (i - 1) % 2 * padding
                 inactive_color = self.rect_bg_color
                 hover_color = tuple(x * 0.85 for x in self.rect_bg_color)
                 button = Button(
@@ -743,7 +787,7 @@ class Game:
         up_down_players: list[int] = [0, 2]
         if not 0 <= position <= 3:
             raise WrongPosition(position)
-        if not player:
+        if player in self.finished_players:
             return
 
         card_width: int
