@@ -1,5 +1,5 @@
 from functools import partial
-from constants import SYMBOLS, VALUES
+from constants import SUITS, VALUES
 from typing import TYPE_CHECKING, Callable, Union
 
 if TYPE_CHECKING:
@@ -15,54 +15,52 @@ class WrongCardValue(Exception):
         super().__init__(message, value)
 
 
-class WrongCardSymbol(Exception):
+class WrongCardSuit(Exception):
     def __init__(
         self,
-        symbol: str,
-        message: str = "Must be a string containing one of four possible symbols: clubs, spades, diamonds, hearts",
+        suit: str,
+        message: str = "Must be a string containing one of four possible suits: clubs, spades, diamonds, hearts",
     ) -> None:
-        super().__init__(message, symbol)
+        super().__init__(message, suit)
 
 
 class Card:
-    def __init__(self, value: Union[str, int], symbol: str) -> None:
+    def __init__(self, value: Union[str, int], suit: str) -> None:
         """
         Represents a card from a deck of cards.
 
         :param value: card's value, from 2 to A
-        :type value: str
-        :param symbol: card's symbol: clubs, spades, diamonds, hearts
-        :type symbol: str
+        :param suit: card's suit: clubs, spades, diamonds, hearts
         :raises WrongCardValue: Is raised if the value is not in the VALUES list
-        :raises WrongCardSymbol: Is raised if the symbol is not in the SYMBOLS list
+        :raises WrongCardSuit: Is raised if the suit is not in the SUITS list
         """
         value = str(value)
         if value not in VALUES:
             raise WrongCardValue(value)
-        if symbol not in SYMBOLS:
-            raise WrongCardSymbol(symbol)
+        if suit not in SUITS:
+            raise WrongCardSuit(suit)
 
         self._value: str = value
-        self._symbol: str = symbol
+        self._suit: str = suit
         if value != "king":
             self._play_effect: Callable = self.EFFECT_MAP.get(self.value, self._no_effect)
         else:
-            self._play_effect = self.KING_EFFECT_MAP.get(self.symbol, self._block_king)
+            self._play_effect = self.KING_EFFECT_MAP.get(self.suit, self._block_king)
 
     @property
     def value(self) -> str:
         return self._value
 
     @property
-    def symbol(self) -> str:
-        return self._symbol
+    def suit(self) -> str:
+        return self._suit
 
     @property
     def play_effect(self):
         return self._play_effect
 
     def get_image_name(self) -> str:
-        return f"images/{self.symbol}_{self.value}.png"
+        return f"images/{self.suit}_{self.value}.png"
 
     def can_play(self, played_card: "Card", **kwargs) -> bool:
         """
@@ -71,25 +69,31 @@ class Card:
         :param played_card: The card that is currently played.
         :return: True if the selected card can be played, False otherwise.
         """
-        req_symbol: str = kwargs.get("symbol", None)
-        req_value: str = kwargs.get("value", None)
+        req_suit: tuple[str, int] = kwargs.get("suit", None)
+        req_value: tuple[str, int] = kwargs.get("value", None)
         four_played: int = kwargs.get("skip", None)
         king_played: bool = kwargs.get("king", None)
+        penalty: int = kwargs.get("penalty", None)
 
         # if self.value == "4" and played_card.value == "4":
         #     return True
-        if four_played and played_card.value == "4":
-            return True
-        if req_value and req_value[0] == played_card.value:
-            return True
-        if req_symbol and req_symbol[0] == played_card.symbol:
-            return True
-        if king_played and played_card.value == "king":
-            return True
+        if four_played:
+            return played_card.value == "4"
+        if req_value:
+            return req_value[0] == played_card.value
+        if req_suit:
+            return req_suit[0] == played_card.suit
+        if penalty and not king_played:
+            return self.check_compatible(played_card)
+        if king_played:
+            return played_card.value == "king"
         if self.value == "queen" or played_card.value == "queen":
             return True
 
-        return self.symbol == played_card.symbol or self.value == played_card.value
+        return self.check_compatible(played_card)
+
+    def check_compatible(self, played_card: "Card") -> bool:
+        return self.value == played_card.value or self.suit == played_card.suit
 
     @staticmethod
     def _no_effect(game: "Game"):
@@ -116,15 +120,15 @@ class Card:
         pass
 
     @staticmethod
-    def _request_symbol(game: "Game") -> None:
-        game.selection(SYMBOLS)
+    def _request_suit(game: "Game") -> None:
+        game.selection(SUITS)
 
     EFFECT_MAP: dict[str, Callable] = {
         "2": partial(_draw_cards, number=2),
         "3": partial(_draw_cards, number=3),
         "4": _skip_next_player,
         "jack": _request_value,
-        "ace": _request_symbol,
+        "ace": _request_suit,
     }
 
     KING_EFFECT_MAP: dict[str, Callable] = {
@@ -133,9 +137,9 @@ class Card:
     }
 
     def __repr__(self) -> str:
-        return f"Card('{self.value}', '{self.symbol}')"
+        return f"Card('{self.value}', '{self.suit}')"
 
     def __eq__(self, card: object) -> bool:
         if not isinstance(card, Card):
             return NotImplemented
-        return self.value == card.value and self.symbol == card.symbol
+        return self.value == card.value and self.suit == card.suit
