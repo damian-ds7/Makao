@@ -79,15 +79,15 @@ class Card:
         #     return True
         if four_played:
             return played_card.value == "4"
-        if req_value:
+        elif req_value:
             return req_value[0] == played_card.value
-        if req_suit:
+        elif req_suit:
             return req_suit[0] == played_card.suit
-        if penalty and not king_played:
-            return self.check_compatible(played_card)
-        if king_played:
+        elif penalty and not king_played:
+            return self.check_compatible(played_card) and played_card.value in ["2", "3"]
+        elif king_played:
             return played_card.value == "king"
-        if self.value == "queen" or played_card.value == "queen":
+        elif self.value == "queen" or played_card.value == "queen":
             return True
 
         return self.check_compatible(played_card)
