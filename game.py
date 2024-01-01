@@ -1,5 +1,5 @@
 from card import Card
-from constants import SYMBOLS
+from constants import SUITS
 from deck import Deck, DeckAlreadyEmptyError
 from players import HumanPlayer, ComputerPlayer
 from players import PlayNotAllowedError
@@ -41,26 +41,34 @@ class WrongPlayerNumber(ValueError):
 class ImageButton(Button):
     def __init__(self, win: Surface, x: int, y: int, width: int, height: int, **kwargs):
         super().__init__(win, x, y, width, height, **kwargs)
-        self.hover_image = self.darken_image(self.image)
+        self.hover_image: Surface = self.modify_brightness(self.image, 0.85)
+        self.click_image: Surface = self.modify_brightness(self.image, 0.75)
+        self.inactive_image: Surface = self.image
 
-    def darken_image(self, image: Surface) -> Surface:
+    def modify_brightness(self, image: Surface, multiplier: float) -> Surface:
         arr = array3d(image)
-        arr = arr * 0.85
+        arr = arr * multiplier
         return make_surface(arr)
 
-    def draw(self, **kwargs):
+    def draw(self, **kwargs) -> None:
         mouseState = Mouse.getMouseState()
         x, y = Mouse.getMousePos()
+
         if self.contains(x, y):
             if mouseState == MouseState.HOVER or mouseState == MouseState.DRAG:
-                self.win.blit(self.hover_image, (self._x, self._y))
+                self.image = self.hover_image
+            elif mouseState == MouseState.RELEASE and self.clicked:
+                self.image = self.inactive_image
+            elif mouseState == MouseState.CLICK:
+                self.image = self.click_image
         else:
-            self.win.blit(self.image, (self._x, self._y))
-        if kwargs:
-            new_len = kwargs.get("new_len", None)
-            self.setText(new_len)
+            self.image = self.inactive_image
 
-        self.textRect = self.text.get_rect()
+        self.win.blit(self.image, (self._x, self._y))
+        if kwargs:
+            new_len: str = kwargs.get("new_len", None)
+            self.setText(new_len)
+        self.textRect: Rect = self.text.get_rect()
         self.alignTextRect()
         self.win.blit(self.text, self.textRect)
 
@@ -114,7 +122,6 @@ class SelectionMenu:
                 if button.clicked:
                     selected = i
                     running = False
-                button.draw()
             pgw.update(events)
             pg.display.update(self.rect)
         return selected
@@ -123,8 +130,6 @@ class SelectionMenu:
 class Game:
     # TODO:
     # - (Optional) Stop Macao button
-    # - next_turn and macao methods
-    # - add limitation for one draw, play per turn and limitations related to playing cards on function cards
     def __init__(self, player_number: int) -> None:
         """
         Represents a game of Makao.
@@ -210,7 +215,7 @@ class Game:
             )
 
     @property
-    def center_caard(self) -> Card:
+    def center_card(self) -> Card:
         return self._center_card
 
     @property
