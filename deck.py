@@ -1,4 +1,4 @@
-from constants import VALUES, SYMBOLS
+from constants import VALUES, SUITS
 from card import Card
 from random import shuffle
 
@@ -28,7 +28,7 @@ class Deck:
         self._deck: list[Card] = (
             []
             if empty
-            else [Card(value, symbol) for value in VALUES for symbol in SYMBOLS]
+            else [Card(value, suit) for value in VALUES for suit in SUITS]
         )
         if shuffle:
             self.shuffle()
