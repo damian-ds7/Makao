@@ -295,22 +295,30 @@ class Game:
         return self.players[self.current_player_index]
 
     def increase_penalty(self, to_add: int) -> None:
-        self._penalty_draw += to_add
+        key, val = "penalty", self.game_params.get("penalty", None) or 0
+        self.game_params.update({key: val + to_add})
 
     def reset_penalty(self):
-        self._penalty_draw = 0
+        self.game_params.pop("penalty")
 
     def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], **kwargs):
         player.penalty = True
         number: int = kwargs.get("number", None)
-        draw: int = self.penalty_draw if not number else number
+        draw: int = self.get_penalty if not number else number
         if not draw:
             return
         self.reset_penalty()
+        self.reset_king()
         self.take_cards(player, draw)
         player.penalty = False
 
     def king_played(self, **kwargs) -> None:
+        """
+        Updates the game state when a king card is played.
+
+        :param previous: Indicates which player will have to draw penalty
+        :return: None
+        """
         previous: bool = kwargs.get("previous", None)
         player = self.get_current_player()
         self.game_params.update({"king": True})
@@ -329,7 +337,13 @@ class Game:
             self.reset_penalty()
             self.game_params.pop("king")
 
-    def selection(self, items: list[str]) -> None:
+    def yion(self, items: list[str]) -> None:
+        """
+        Allows the player to make a selection from a list of items.
+
+        :param items: The list of items to choose from.
+        :return: None
+        """
         if not self.current_player_index:
             menu: SelectionMenu = SelectionMenu(items, self.window)
             selected_index: int = menu.run()
@@ -463,6 +477,15 @@ class Game:
         return None
 
     def play_turn(self) -> None:
+        """
+        Plays a turn in the game.
+
+        This method determines the actions to be taken by the current player during their turn.
+        It checks if the player needs to skip turns, draw penalty cards, play a card, or take cards from the center.
+        The method also updates the game state and moves to the next turn.
+
+        :return: None
+        """
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
         if player.skip_turns:
             if player.played_king:
@@ -470,38 +493,39 @@ class Game:
                 player.played_king = False
             self.next_turn()
             player.skip_turns -= 1
+            return
         if self.current_player_index:
             self.stop_makao(player)
-            sleep(1)
             players = self.players.copy()
             game_state: dict[str, Union[list, Card]] = {
                 "players": players,
-                "center": self.center_caard,
+                "center": self.center_card,
             }
             game_state.update(self.game_params)
             self.played_card: Optional[Card] = player.find_best_play(**game_state)  # type: ignore
             if not self.played_card:
                 if self.game_params.get("skip", None):
                     pass
-                elif self.penalty_draw:
+                elif self.get_penalty:
                     self.draw_penalty(player)
                 else:
                     self.take_cards(player)
                 self.next_turn()
                 return
-            self.play_card(self.played_card, player)
             print(
-                f"Current card: {self.center_caard}      Played card:"
+                f"Current card: {self.center_card}      Played card:"
                 f" {self.played_card}"
             )
+            self.play_card(self.played_card, player)
             self.next_turn()
+            sleep(1)
         else:
             if self.played_card:
-                self.play_card(self.played_card, player)
                 print(
-                    f"Current card: {self.center_caard}      Played card:"
+                    f"Current card: {self.center_card}      Played card:"
                     f" {self.played_card}"
                 )
+                self.play_card(self.played_card, player)
 
     def handle_quit_event(self) -> None:
         self._game_over = True
@@ -590,6 +614,12 @@ class Game:
         pg.quit()
 
     def render_game_info(self) -> None:
+        """
+        Renders the game information on the screen.
+
+        This method displays various game information such as penalty draw sum,
+        required value, required suit, and total turns to skip if there are any.
+        """
         padding: int = 10
         x: int = padding
         y: int = padding
