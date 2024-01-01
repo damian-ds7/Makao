@@ -337,7 +337,7 @@ class Game:
             self.reset_penalty()
             self.game_params.pop("king")
 
-    def yion(self, items: list[str]) -> None:
+    def selection(self, items: list[str]) -> None:
         """
         Allows the player to make a selection from a list of items.
 
