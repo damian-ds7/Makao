@@ -1,3 +1,4 @@
+from functools import partial
 from constants import SYMBOLS, VALUES
 from typing import TYPE_CHECKING, Callable, Union
 
@@ -43,22 +44,10 @@ class Card:
 
         self._value: str = value
         self._symbol: str = symbol
-        if value != "king" or symbol in ["diamonds", "clubs"]:
-            effect_map: dict[str, Callable] = {
-                "2": self._draw_cards,
-                "3": self._draw_cards,
-                "4": self._skip_next_player,
-                "jack": self._request_value,
-                "queen": self._play_any_card,
-                "ace": self._request_symbol,
-            }
-            self._play_effect: Callable = effect_map.get(self.value, self._no_effect)
+        if value != "king":
+            self._play_effect: Callable = self.EFFECT_MAP.get(self.value, self._no_effect)
         else:
-            effect_map = {
-                # "hearts": NotImplemented,
-                # "spades": NotImplemented
-            }
-            self._play_effect = effect_map.get(self.value, self._no_effect)
+            self._play_effect = self.KING_EFFECT_MAP.get(self.symbol, self._block_king)
 
     @property
     def value(self) -> str:
@@ -75,7 +64,7 @@ class Card:
     def get_image_name(self) -> str:
         return f"images/{self.symbol}_{self.value}.png"
 
-    def can_play(self, played_card, **kwargs) -> bool:
+    def can_play(self, played_card: "Card", **kwargs) -> bool:
         """
         Checks if the card selected by the player can be played.
 
@@ -84,40 +73,64 @@ class Card:
         """
         req_symbol: str = kwargs.get("symbol", None)
         req_value: str = kwargs.get("value", None)
-        four_played: bool = kwargs.get("four", None)
+        four_played: int = kwargs.get("skip", None)
+        king_played: bool = kwargs.get("king", None)
 
-        if self.value == "4" and played_card.value == "4":
-            return True
-        if req_value and req_value == played_card.value:
-            return True
-        if req_symbol and req_symbol == played_card.symbol:
-            return True
+        # if self.value == "4" and played_card.value == "4":
+        #     return True
         if four_played and played_card.value == "4":
+            return True
+        if req_value and req_value[0] == played_card.value:
+            return True
+        if req_symbol and req_symbol[0] == played_card.symbol:
+            return True
+        if king_played and played_card.value == "king":
+            return True
+        if self.value == "queen" or played_card.value == "queen":
             return True
 
         return self.symbol == played_card.symbol or self.value == played_card.value
 
-    def _no_effect(self, game: "Game"):
+    @staticmethod
+    def _no_effect(game: "Game"):
         pass
 
-    def _draw_cards(self, game: "Game") -> None:
-        number = int(self.value)
+    @staticmethod
+    def _draw_cards(game: "Game", number: int) -> None:
         game.increase_penalty(number)
 
-    def _skip_next_player(self, game: "Game") -> None:
+    @staticmethod
+    def _skip_next_player(game: "Game") -> None:
         game.increment_skip()
 
-    def _request_value(self, game: "Game") -> None:
+    @staticmethod
+    def _request_value(game: "Game") -> None:
         game.selection(VALUES[3:9])
 
-    def _play_any_card(self, game: "Game") -> None:
+    @staticmethod
+    def _king_draw_cards(game: "Game", previous: bool = False) -> None:
+        game.king_played(previous=previous)
+
+    @staticmethod
+    def _block_king(game: "Game") -> None:
         pass
 
-    def _king_draw_cards(self, game: "Game") -> None:
-        pass
-
-    def _request_symbol(self, game: "Game") -> None:
+    @staticmethod
+    def _request_symbol(game: "Game") -> None:
         game.selection(SYMBOLS)
+
+    EFFECT_MAP: dict[str, Callable] = {
+        "2": partial(_draw_cards, number=2),
+        "3": partial(_draw_cards, number=3),
+        "4": _skip_next_player,
+        "jack": _request_value,
+        "ace": _request_symbol,
+    }
+
+    KING_EFFECT_MAP: dict[str, Callable] = {
+        "spades": partial(_king_draw_cards, previous=True),
+        "hearts": _king_draw_cards,
+    }
 
     def __repr__(self) -> str:
         return f"Card('{self.value}', '{self.symbol}')"
