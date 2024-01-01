@@ -1,4 +1,4 @@
-SYMBOLS: list[str] = ["clubs", "spades", "diamonds", "hearts"]
+SUITS: list[str] = ["clubs", "spades", "diamonds", "hearts"]
 VALUES: list[str] = [
     "2",
     "3",
