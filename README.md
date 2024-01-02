@@ -41,6 +41,7 @@ Depending on what you are making, it can be a good idea to include screenshots o
     - Linux:
         - `python3 -m venv .venv`
         - `source venv/bin/activate`
+        - If there is UserWarning: 'fc-list' is missing on your system. you can install it using `sudo apt-get install fontconfig` and it should fix rendered text issues.
     - Windows:
         - `python -m venv .venv`
         - `venv\Scripts\activate`
