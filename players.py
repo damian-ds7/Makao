@@ -40,14 +40,14 @@ class HumanPlayer:
         """
         Returns True if player has drawn penalty
         """
-        return self._drew_penalty
+        return self._drew_card
 
     @property
     def drew_penalty(self) -> bool:
         """
         Returns True if player has played at least one car
         """
-        return self._drew_card
+        return self._drew_penalty
 
     @property
     def cards_played(self) -> int:
