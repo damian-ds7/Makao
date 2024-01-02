@@ -117,7 +117,7 @@ class Card:
 
     @staticmethod
     def _block_king(game: "Game") -> None:
-        pass
+        game.reset_king()
 
     @staticmethod
     def _request_suit(game: "Game") -> None:
