@@ -177,6 +177,7 @@ class Game:
 
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
+        pg.display.set_caption("Macao")
         self._min_width: int = 1050
         self._min_height: int = 800
         self._window_width: int = 1050
@@ -566,7 +567,7 @@ class Game:
                 f"Current card: {self.center_card}      Played card:"
                 f" {self.played_card}"
             )
-            self.play_card(self.played_card, player)
+            self.play_card(self.played_card, player)  # type: ignore
 
     def handle_quit_event(self) -> None:
         self._game_over = True
