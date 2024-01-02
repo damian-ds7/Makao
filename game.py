@@ -90,32 +90,37 @@ class SelectionMenu:
         button_width: int = 90,
     ) -> None:
         self.screen: Surface = screen
-        padding: int = 5
-        font_size: int = 20
-        window_height: int = len(items) * (button_height + padding) + padding
-        window_width: int = button_width + 2 * padding
+        self.padding: int = 5
+        self.font_size: int = 20
+        self.inactive_color: tuple[int, int, int] = (255, 255, 255)
+        self.hover_color: tuple[float, ...] = tuple(x * 0.85 for x in self.inactive_color)
+        self.background_color: tuple[int, int, int] = (34, 139, 34)
+
+        window_height: int = len(items) * (button_height + self.padding) + self.padding
+        window_width: int = button_width + 2 * self.padding
         x: int = self.screen.get_width() // 2 - window_width // 2
         y: int = self.screen.get_height() // 2 - window_height // 2
-        inactive_color: tuple[int, int, int] = (255, 255, 255)
-        hover_color: tuple[float, ...] = tuple(x * 0.85 for x in inactive_color)
 
         self.rect: Rect = Rect(x, y, window_width, window_height)
-        self.background_color: tuple[int, int, int] = (34, 139, 34)
-        self.buttons: list[Button] = []
+        self.buttons: list[Button] = self.create_buttons(items, button_height, button_width)
 
+    def create_buttons(self, items: list[str], button_height: int, button_width: int) -> list[Button]:
+        """Create a list of buttons."""
+        buttons = []
         for i, text in enumerate(items):
             button = Button(
                 self.screen,
-                self.rect.x + padding,
-                self.rect.y + i * (button_height + padding) + padding,
+                self.rect.x + self.padding,
+                self.rect.y + i * (button_height + self.padding) + self.padding,
                 button_width,
                 button_height,
                 text=text,
-                fontSize=font_size,
-                inactiveColour=inactive_color,
-                hoverColour=hover_color,
+                fontSize=self.font_size,
+                inactiveColour=self.inactive_color,
+                hoverColour=self.hover_color,
             )
-            self.buttons.append(button)
+            buttons.append(button)
+        return buttons
 
     def run(self) -> int:
         running: bool = True
