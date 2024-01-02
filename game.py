@@ -339,14 +339,10 @@ class Game:
             player.played_king = True
         self.next_turn(backwards=previous)
 
-    def reset_king(self, reset: bool = False) -> None:
+    def reset_king(self) -> None:
         if self.game_params.get("king", None):
             self.game_params.pop("king")
-            if reset:
-                self.reset_penalty()
-
-    def block_king(self) -> None:
-        self.reset_king(True)
+            self.reset_penalty()
 
     def selection(self, items: list[str]) -> None:
         """
@@ -456,6 +452,8 @@ class Game:
         # if self.penalty_draw:
         #     self.draw_penalty(player)
         self.check_if_finished(player)
+        if self.get_penalty and not player.cards_played:
+            self.draw_penalty(player)
         if self.get_skip and not self.played_card:
             player.skip_turns = self.get_skip
             self.reset_skip()
@@ -504,7 +502,7 @@ class Game:
                 return card
         return None
 
-    def play_turn(self, **kwargs) -> None:
+    def play_turn(self) -> None:
         """
         Plays a turn in the game.
 
@@ -551,14 +549,11 @@ class Game:
             self.next_turn()
             sleep(1)
         else:
-            played_card: Optional[Card] = kwargs.get("played_card", None)
-            if played_card:
-                self.played_card = played_card
-                print(
-                    f"Current card: {self.center_card}      Played card:"
-                    f" {self.played_card}"
-                )
-                self.play_card(self.played_card, player)
+            print(
+                f"Current card: {self.center_card}      Played card:"
+                f" {self.played_card}"
+            )
+            self.play_card(self.played_card, player)
 
     def handle_quit_event(self) -> None:
         self._game_over = True
@@ -638,7 +633,9 @@ class Game:
                     if self.current_player_index:
                         continue
                     played_card: Optional[Card] = self.handle_mouse_button_down_event()
-                    self.play_turn(played_card=played_card)
+                    if played_card:
+                        self.played_card = played_card
+                        self.play_turn()
                 elif event.type == pg.VIDEORESIZE:
                     self.handle_video_resize_event(event)
             if self.current_player_index:
