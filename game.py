@@ -50,12 +50,10 @@ class ImageButton(Button):
         arr = arr * multiplier
         return make_surface(arr)
 
-    def draw(self, **kwargs) -> None:
-        mouseState = Mouse.getMouseState()
-        x, y = Mouse.getMousePos()
-
+    def update_image(self, mouseState: MouseState, x: int, y: int) -> None:
+        """Update the button image based on the mouse state and position."""
         if self.contains(x, y):
-            if mouseState == MouseState.HOVER or mouseState == MouseState.DRAG:
+            if mouseState in [MouseState.HOVER, MouseState.DRAG]:
                 self.image = self.hover_image
             elif mouseState == MouseState.RELEASE and self.clicked:
                 self.image = self.inactive_image
@@ -64,13 +62,23 @@ class ImageButton(Button):
         else:
             self.image = self.inactive_image
 
-        self.win.blit(self.image, (self._x, self._y))
+    def draw_text(self, **kwargs) -> None:
+        """Draw the button text."""
         if kwargs:
             new_len: str = kwargs.get("new_len", None)
             self.setText(new_len)
         self.textRect: Rect = self.text.get_rect()
         self.alignTextRect()
         self.win.blit(self.text, self.textRect)
+
+    def draw(self, **kwargs) -> None:
+        """Draw the button."""
+        mouseState = Mouse.getMouseState()
+        x, y = Mouse.getMousePos()
+
+        self.update_image(mouseState, x, y)
+        self.win.blit(self.image, (self._x, self._y))
+        self.draw_text(**kwargs)
 
 
 class SelectionMenu:
