@@ -93,7 +93,9 @@ class SelectionMenu:
         self.padding: int = 5
         self.font_size: int = 20
         self.inactive_color: tuple[int, int, int] = (255, 255, 255)
-        self.hover_color: tuple[float, ...] = tuple(x * 0.85 for x in self.inactive_color)
+        self.hover_color: tuple[float, ...] = tuple(
+            x * 0.85 for x in self.inactive_color
+        )
         self.background_color: tuple[int, int, int] = (34, 139, 34)
 
         window_height: int = len(items) * (button_height + self.padding) + self.padding
@@ -102,9 +104,13 @@ class SelectionMenu:
         y: int = self.screen.get_height() // 2 - window_height // 2
 
         self.rect: Rect = Rect(x, y, window_width, window_height)
-        self.buttons: list[Button] = self.create_buttons(items, button_height, button_width)
+        self.buttons: list[Button] = self.create_buttons(
+            items, button_height, button_width
+        )
 
-    def create_buttons(self, items: list[str], button_height: int, button_width: int) -> list[Button]:
+    def create_buttons(
+        self, items: list[str], button_height: int, button_width: int
+    ) -> list[Button]:
         """Create a list of buttons."""
         buttons = []
         for i, text in enumerate(items):
@@ -245,6 +251,10 @@ class Game:
     @property
     def game_params(self) -> dict[str, Any]:
         return self._game_params
+
+    @property
+    def game_rects(self) -> dict[str, list]:
+        return self._game_rects
 
     # @property
     # def finished_move(self) -> bool:
@@ -388,7 +398,9 @@ class Game:
         :param player: The player who will receive the cards.
         :param number: The number of cards to be taken, defaults to 1.
         """
-        if self.players.index(player) != self.current_player_index or self.game_params.get("skip", None):
+        if self.players.index(
+            player
+        ) != self.current_player_index or self.game_params.get("skip", None):
             return
 
         if self.get_penalty:
@@ -564,8 +576,7 @@ class Game:
             sleep(1)
         else:
             print(
-                f"Current card: {self.center_card}      Played card:"
-                f" {self.played_card}"
+                f"Current card: {self.center_card}      Played card: {self.played_card}"
             )
             self.play_card(self.played_card, player)  # type: ignore
 
@@ -623,7 +634,7 @@ class Game:
         self.render_game_info()
         for player in self.players:
             self.render_cards(player, all_visible=True)
-        for button in self._game_rects["buttons"]:
+        for button in self.game_rects.get("buttons", []):
             try:
                 new_len = str(
                     len(self.discarded_deck) if not self.deck else len(self.deck)
@@ -656,7 +667,7 @@ class Game:
                 self.play_turn()
             self.render_game(events)
             if len(self.finished_players) == len(self.players) - 1:
-                self._game_over = True
+                self.handle_quit_event()
 
         pg.quit()
 
@@ -700,7 +711,7 @@ class Game:
         """
         Renders clickable buttons: Deck to draw cards, Macao! and Next Buttons
         """
-        self._game_rects["buttons"] = []
+        buttons_list: list[Button] = []
         x: int
         y: int
         button: Button
@@ -752,9 +763,19 @@ class Game:
             except ValueError:
                 button_width = 90
                 button_height = 50
-                y = self.window_height - padding - button_height - (padding + button_height) * (i > 2)
+                y = (
+                    self.window_height
+                    - padding
+                    - button_height
+                    - (padding + button_height) * (i > 2)
+                )
                 mul: int = (i - 2) if i > 2 else i
-                x = self.window_width - padding - mul * button_width - (i - 1) % 2 * padding
+                x = (
+                    self.window_width
+                    - padding
+                    - mul * button_width
+                    - (i - 1) % 2 * padding
+                )
                 inactive_color = self.rect_bg_color
                 hover_color = tuple(x * 0.85 for x in self.rect_bg_color)
                 button = Button(
@@ -768,7 +789,7 @@ class Game:
                     inactiveColour=inactive_color,
                     hoverColour=hover_color,
                 )
-            self._game_rects["buttons"].append(button)
+            buttons_list.append(button)
 
     def render_center_card(self) -> None:
         """
@@ -831,7 +852,7 @@ class Game:
         if position != 0:
             card_image: Surface = self._load_scale_image(card_height, card_width)
         else:
-            self._game_rects["human_cards"] = []
+            self.game_rects.update({"human_cards": []})
 
         total_width = min(max_total_width, allowed_width)
         max_total_width -= total_width
@@ -881,7 +902,7 @@ class Game:
                     card_height, card_width, card.get_image_name()
                 )
                 card_rect: Rect = Rect(x, y, card_width, card_height)
-                self._game_rects["human_cards"].append(card_rect)
+                self.human_card_rects.append(card_rect)
 
             self.window.blit(card_image, (x, y))
         if position == self.current_player_index:
