@@ -109,7 +109,7 @@ class Card:
 
     @staticmethod
     def _request_value(game: "Game") -> None:
-        game.selection(VALUES[3:9])
+        game.jack_played()
 
     @staticmethod
     def _king_draw_cards(game: "Game", previous: bool = False) -> None:
@@ -121,7 +121,7 @@ class Card:
 
     @staticmethod
     def _request_suit(game: "Game") -> None:
-        game.selection(SUITS)
+        game.ace_played()
 
     EFFECT_MAP: dict[str, Callable] = {
         "2": partial(_draw_cards, number=2),
