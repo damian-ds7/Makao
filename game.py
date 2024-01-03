@@ -1,5 +1,5 @@
 from card import Card
-from constants import SUITS
+from constants import SUITS, VALUES
 from deck import Deck, DeckAlreadyEmptyError
 from players import HumanPlayer, ComputerPlayer
 from players import PlayNotAllowedError
@@ -342,7 +342,8 @@ class Game:
         draw: int = self.get_penalty if not number else number
         if not draw:
             return
-        self.reset_penalty()
+        if self.get_penalty:
+            self.reset_penalty()
         self.reset_king()
         self.take_cards(player, draw)
         player.penalty = False
@@ -351,7 +352,7 @@ class Game:
         """
         Updates the game state when a king card is played.
 
-        :param previous: Indicates which player will have to draw penalty
+        :param previous: Indicates if the previous or next player will have to draw penalty
         :return: None
         """
         previous: bool = kwargs.get("previous", None)
@@ -368,6 +369,18 @@ class Game:
             self.game_params.pop("king")
             self.reset_penalty()
 
+    def jack_played(self) -> None:
+        """
+        Adds flag that jack was played so that slection menu will pop up at the end of turn
+        """
+        self.game_params.update({"jack": True})
+
+    def ace_played(self):
+        """
+        Adds flag that ace was played so that slection menu will pop up at the end of turn
+        """
+        self.game_params.update({"ace": True})
+
     def selection(self, items: list[str]) -> None:
         """
         Allows the player to make a selection from a list of items.
@@ -382,12 +395,12 @@ class Game:
             # TODO: algorithm for player to adapt to required cards
             pass
 
-        #  number of turns in tuples in one more than in the rules to account for casting player's next_turn()
-        if self.center_card.value == "jack":
-            self.game_params.update({"value": (items[selected_index], 5)})
+        if self.game_params.get("jack", None):
+            self.game_params.update({"value": (items[selected_index], 4)})
+            self.game_params.pop("jack")
         else:
-            self.game_params.update({"suit": (items[selected_index], 2)})
-        self.next_turn()
+            self.game_params.update({"suit": (items[selected_index], 1)})
+            self.game_params.pop("ace")
 
     def take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
@@ -403,6 +416,7 @@ class Game:
         ) != self.current_player_index or self.game_params.get("skip", None):
             return
 
+        #  if user presses the button and has a penalty to draw, instead of one card the entire penalty will be drawn
         if self.get_penalty:
             self.draw_penalty(player)
             return
@@ -478,11 +492,20 @@ class Game:
         # if self.penalty_draw:
         #     self.draw_penalty(player)
         self.check_if_finished(player)
+        self.update_req_params()
+        jack: bool = self.game_params.get("jack", False)
+        ace: bool = self.game_params.get("ace", False)
+        if jack or ace:
+            items: list[str] = SUITS if ace else VALUES[3:9]
+            self.selection(items)
+
         if self.get_penalty and not player.cards_played:
             self.draw_penalty(player)
+
         if self.get_skip and not self.played_card:
             player.skip_turns = self.get_skip
             self.reset_skip()
+
         if player.check_moved() or player.skip_turns:
             player.skip_turns -= 1 if player.skip_turns else 0
             player.reset_turn_status()
@@ -507,8 +530,6 @@ class Game:
                         " be played before"
                     )
                 player.play_card(played_card)
-                if player.cards_played == 1:
-                    self.update_req_params()
                 self.discarded_deck.add_card(self.center_card)
                 self._center_card = played_card
                 played_card.play_effect(self)
@@ -547,7 +568,7 @@ class Game:
                 self.draw_penalty(player)
                 player.played_king = False
             self.next_turn()
-            player.skip_turns -= 1
+            player.skip_turns = max(player.skip_turns - 1, 0)
             return
         if self.current_player_index:
             self.stop_makao(player)
