@@ -710,6 +710,8 @@ class Game:
     def render_buttons(self) -> None:
         """
         Renders clickable buttons: Deck to draw cards, Macao! and Next Buttons
+        Can only be used once at the start of the game, And buttons can be
+        redrawn individually in other methods
         """
         buttons_list: list[Button] = []
         x: int
@@ -791,9 +793,11 @@ class Game:
                 )
             buttons_list.append(button)
 
+        self.game_rects.update({"buttons": buttons_list})
+
     def render_center_card(self) -> None:
         """
-        Renders current center card and hidden deck of cards that player can draw from
+        Renders current center card
         """
         card_image: Surface = image.load(self.center_card.get_image_name())
         x: int = (self.window_width - self.card_width) // 2 - self.card_width // 2
@@ -817,6 +821,7 @@ class Game:
         padding: int = 5
         position: int = self.players.index(player)
         up_down_players: list[int] = [0, 2]
+
         if not 0 <= position <= 3:
             raise WrongPosition(position)
         if player in self.finished_players:
@@ -829,9 +834,7 @@ class Game:
         hand_len: int = len(player.hand)
         num_rows: int = self._calculate_num_rows(hand_len, cards_per_row)
         allowed_width: int = self._calculate_allowed_width(cards_per_row)
-        max_total_width: int = self._calculate_total_width(
-            card_width, num_rows, hand_len
-        )
+        max_total_width: int = self._calculate_total_width(card_width, num_rows, hand_len)
         (
             card_width,
             card_height,
@@ -1011,9 +1014,10 @@ class Game:
         allowed_width: int,
         num_rows: int,
         player,
-    ) -> tuple[int, ...]:
+    ) -> tuple[int, int, int, int, int]:
         """
         Scales the card dimensions based on the number of rows and allowed width.
+        If number of rows with original width is larger than 3 cards will be scaled
 
         :param cards_per_row: Number of cards per row.
         :param max_total_width: Maximum total width allowed.
@@ -1024,13 +1028,7 @@ class Game:
                  maximum total width, and number of rows.
         """
         if num_rows <= 3:
-            return (
-                self.card_width,
-                self.card_height,
-                cards_per_row,
-                max_total_width,
-                num_rows,
-            )
+            return self.card_width, self.card_height, cards_per_row, max_total_width, num_rows
 
         num_rows = 3
         cards_per_row = len(player.hand) // num_rows
