@@ -147,7 +147,6 @@ class ComputerPlayer(HumanPlayer):
     def find_best_play(self, **kwargs) -> Optional[Card]:
         center_card: Card = kwargs.get("center", None)
         players: list[Union[HumanPlayer, "ComputerPlayer"]] = kwargs.get("players", None)
-        players.remove(self)
         req_suit: tuple = kwargs.get("suit", None)
         req_value: tuple = kwargs.get("value", None)
         four_played: bool = kwargs.get("skip", None)
