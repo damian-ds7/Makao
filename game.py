@@ -556,6 +556,25 @@ class Game:
                 return card
         return None
 
+    def _computer_play_cards(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        players = self.players.copy()
+        game_state: dict[str, Union[list, Card]] = {
+            "players": players,
+            "center": self.center_card,
+        }
+        game_state.update(self.game_params)
+        while True:
+            self.played_card: Optional[Card] = player.find_best_play(**game_state)
+
+            if not self.played_card:
+                self.take_cards(player)
+                break
+
+            self.play_card(self.played_card, player)
+            if len(player.hand) == 1:
+                self.makao(player)
+        return
+
     def play_turn(self) -> None:
         """
         Plays a turn in the game.
@@ -579,33 +598,10 @@ class Game:
             return
         if self.current_player_index:
             self.stop_makao(player)
-            players = self.players.copy()
-            game_state: dict[str, Union[list, Card]] = {
-                "players": players,
-                "center": self.center_card,
-            }
-            game_state.update(self.game_params)
-            self.played_card: Optional[Card] = player.find_best_play(**game_state)  # type: ignore
-            if not self.played_card:
-                if self.get_penalty:
-                    self.draw_penalty(player)
-                else:
-                    self.take_cards(player)
-                self.next_turn()
-                sleep(1)
-                return
-            print(
-                f"Current card: {self.center_card}      Played card: {self.played_card}"
-            )
-            self.play_card(self.played_card, player)
-            if len(player.hand) == 1:
-                self.makao(player)
+            self._computer_play_cards(player)
             self.next_turn()
             sleep(1)
         else:
-            print(
-                f"Current card: {self.center_card}      Played card: {self.played_card}"
-            )
             self.play_card(self.played_card, player)  # type: ignore
 
     def handle_quit_event(self) -> None:
