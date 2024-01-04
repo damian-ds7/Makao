@@ -44,9 +44,9 @@ class Card:
         self._value: str = value
         self._suit: str = suit
         if value != "king":
-            self._play_effect: Callable = self.EFFECT_MAP.get(self.value, self._no_effect)
+            self._play_effect: Callable = self.EFFECT_MAP.get(self.value, partial(self._no_effect))
         else:
-            self._play_effect = self.KING_EFFECT_MAP.get(self.suit, self._block_king)
+            self._play_effect = self.KING_EFFECT_MAP.get(self.suit, partial(self._block_king))
 
     @property
     def value(self) -> str:
@@ -127,14 +127,14 @@ class Card:
     EFFECT_MAP: dict[str, Callable] = {
         "2": partial(_draw_cards, number=2),
         "3": partial(_draw_cards, number=3),
-        "4": _skip_next_player,
-        "jack": _request_value,
-        "ace": _request_suit,
+        "4": partial(_skip_next_player),
+        "jack": partial(_request_value),
+        "ace": partial(_request_suit),
     }
 
     KING_EFFECT_MAP: dict[str, Callable] = {
         "spades": partial(_king_draw_cards, previous=True),
-        "hearts": _king_draw_cards,
+        "hearts": partial(_king_draw_cards),
     }
 
     def __repr__(self) -> str:
