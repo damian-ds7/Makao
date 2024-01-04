@@ -179,7 +179,7 @@ class Game:
         self._game_params: dict[str, Any] = {}
         # self._finished_move: bool = False
         self.played_card: Optional[Card] = None
-        self._finished_players: list[Union[HumanPlayer, ComputerPlayer]] = []
+        self._current_rank: int = 1
 
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
@@ -204,11 +204,15 @@ class Game:
         return self._players
 
     @property
-    def finished_players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
-        return self._finished_players
+    def current_rank(self) -> int:
+        return self._current_rank
+
+    def increment_rank(self) -> None:
+        self._current_rank += 1
 
     def player_finish(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
-        self.finished_players.append(player)
+        player.rank = self.current_rank
+        self.increment_rank()
 
     def check_if_finished(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
         if len(player.hand) == 0:
@@ -262,10 +266,10 @@ class Game:
 
     @property
     def get_skip(self) -> int:
-        return self.game_params.get("skip", None) or 0
+        return self.game_params.get("skip", 0)
 
     def increment_skip(self) -> None:
-        val = self.game_params.get("skip", None) or 0
+        val = self.get_skip
         self.game_params.update({"skip": val + 1})
 
     def reset_skip(self) -> None:
@@ -274,7 +278,7 @@ class Game:
 
     @property
     def get_penalty(self) -> int:
-        return self.game_params.get("penalty", None) or 0
+        return self.game_params.get("penalty", 0)
 
     @property
     def card_width(self) -> int:
@@ -335,7 +339,8 @@ class Game:
         self.game_params.update({key: val + to_add})
 
     def reset_penalty(self):
-        self.game_params.pop("penalty")
+        if self.game_params.get("penalty", None):
+            self.game_params.pop("penalty")
 
     def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], number: int = 0):
         player.penalty = True
@@ -411,9 +416,7 @@ class Game:
         :param player: The player who will receive the cards.
         :param number: The number of cards to be taken, defaults to 1.
         """
-        if self.players.index(
-            player
-        ) != self.current_player_index or self.game_params.get("skip", None):
+        if self.players.index(player) != self.current_player_index or self.get_skip:
             return
 
         #  if user presses the button and has a penalty to draw, instead of one card the entire penalty will be drawn
@@ -445,7 +448,7 @@ class Game:
             return
         else:
             player.makao_set_reset(True)
-            print("clicked macao")
+        print("Makao")
 
     def makao_out(self, player: Union[HumanPlayer, ComputerPlayer]):
         if len(player.hand) != 0:
@@ -461,6 +464,7 @@ class Game:
             self.change_current_player(decrement=True)
             self.draw_penalty(previous_player, number=5)
             self.change_current_player()
+            print("Stop Makao")
 
     def update_req_params(self) -> None:
         """
@@ -511,8 +515,10 @@ class Game:
             player.reset_turn_status()
             self.change_current_player(decrement=backwards)
 
+        self.played_card = None
+
     def print_current_move(self):
-        player: str = "Player" if not self.current_player_index else f"Computer{self.current_player_index}"
+        player: str = "Human Player" if not self.current_player_index else f"Computer{self.current_player_index}"
         print(
             f"Center card: {self.center_card}      Played card: {self.played_card}      Player: {player}"
         )
@@ -539,7 +545,6 @@ class Game:
                 self.discarded_deck.add_card(self.center_card)
                 self._center_card = played_card
                 played_card.play_effect(self)
-                self.played_card = None
         except PlayNotAllowedError:
             return
 
@@ -563,17 +568,15 @@ class Game:
             "center": self.center_card,
         }
         game_state.update(self.game_params)
-        while True:
-            self.played_card: Optional[Card] = player.find_best_play(**game_state)
+        self.played_card: Optional[Card] = player.find_best_plays(**game_state)
 
-            if not self.played_card:
-                self.take_cards(player)
-                break
+        if not self.played_card:
+            self.take_cards(player)
+            return
 
-            self.play_card(self.played_card, player)
-            if len(player.hand) == 1:
-                self.makao(player)
-        return
+        self.play_card(self.played_card, player)
+        if len(player.hand) == 1:
+            self.makao(player)
 
     def play_turn(self) -> None:
         """
@@ -586,7 +589,7 @@ class Game:
         :return: None
         """
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
-        if player in self.finished_players:
+        if player.rank:
             self.next_turn()
             return
         if player.skip_turns:
@@ -690,10 +693,14 @@ class Game:
             if self.current_player_index:
                 self.play_turn()
             self.render_game(events)
-            if len(self.finished_players) == len(self.players) - 1:
+            if self.current_rank == 3:
+                self.display_result
                 self.handle_quit_event()
 
         pg.quit()
+
+    def display_result(self):
+        pass
 
     def render_game_info(self) -> None:
         """
