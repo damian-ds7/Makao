@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, Any
 from deck import Deck
 from card import Card
 
@@ -107,7 +107,9 @@ class HumanPlayer:
             self._drew_card = True
 
     def play_card(self, card: Card) -> None:
-        if (self.drew_card and card is self.hand[-1] and not self.cards_played) or not self.drew_card:
+        if (
+            self.drew_card and card is self.hand[-1] and not self.cards_played
+        ) or not self.drew_card:
             self.hand.remove(card)
             self._cards_played += 1
         else:
@@ -144,9 +146,65 @@ class ComputerPlayer(HumanPlayer):
     def player_info(self, human_computer: str = "Computer player") -> tuple:
         return super().player_info(human_computer)
 
-    def find_best_play(self, **kwargs) -> Optional[Card]:
+    def _get_player_data(
+        self, players: list[Union[HumanPlayer, "ComputerPlayer"]], player_index: int
+    ) -> tuple[int, int]:
+        """
+        Get the length of the previous and next player's hand.
+
+            :param players: The list of players.
+            :param player_index: The index of the current player.
+            :return: A tuple containing the length of the previous player's hand and the next player's hand
+        """
+        previous_player: Union[HumanPlayer, "ComputerPlayer"] = None
+        next_player: Union[HumanPlayer, "ComputerPlayer"] = None
+        for i in range(len(players) // 2):
+            if not previous_player:
+                previous_player = players[player_index - i]
+                previous_player = (
+                    previous_player
+                    if not (previous_player.rank or previous_player.skip)
+                    else None
+                )
+            if not next_player:
+                next_player = players[player_index + i]
+                next_player = (
+                    next_player if not (next_player.rank or next_player.skip) else None
+                )
+
+        previous_len: int = len(previous_player.hand)
+        next_len: int = len(next_player.hand)
+
+        return previous_len, next_len
+
+    def _get_possible_moves(self, center_card: Card, **kwargs) -> list[Card]:
+        """
+        Returns a list of possible first moves for the player
+
+        :param center_card: center card
+        :return: list of possible moves
+        """
+        return [card for card in self.hand if center_card.can_play(card, **kwargs)]
+
+    def _simulate_params(self, first_move: Card) -> dict[str, Any]:
+        game_params: dict[str, Any] = {}
+        first_move_val: str = first_move.value
+        if first_move_val in ["2", "3"]:
+            game_params.update({"penalty": int(first_move.value)})
+        elif first_move_val == "4":
+            game_params.update({"skip": 1})
+
+        return game_params
+
+    def _get_next_moves(self, first_move: Card):
+        pass
+
+    def find_best_plays(self, **kwargs) -> Optional[Card]:
         center_card: Card = kwargs.get("center", None)
-        players: list[Union[HumanPlayer, "ComputerPlayer"]] = kwargs.get("players", None)
+        players: list[Union[HumanPlayer, "ComputerPlayer"]] = kwargs.get(
+            "players", None
+        )
+        player_index: int = players.index(self)
         req_suit: tuple = kwargs.get("suit", None)
         req_value: tuple = kwargs.get("value", None)
         four_played: bool = kwargs.get("skip", None)
