@@ -1,6 +1,7 @@
 from card import Card
-from card import WrongCardSuit, WrongCardValue
+from card import WrongCardSuit, WrongCardValue, CardPlayedOnItself
 from pytest import raises
+from constants import SUITS, VALUES
 
 
 def test_wrong_value():
@@ -20,7 +21,14 @@ def get_effect_name_kwargs(card: Card) -> tuple[str, dict]:
 
 def test_card_effect_assign():
     card: Card = Card(2, "spades")
-    assert get_effect_name_kwargs(card)[0] == Card._draw_cards.__name__
+    effect = get_effect_name_kwargs(card)
+    assert effect[0] == Card._draw_cards.__name__
+    assert effect[1].get("number", None) == 2
+
+    card: Card = Card(3, "spades")
+    effect = get_effect_name_kwargs(card)
+    assert effect[0] == Card._draw_cards.__name__
+    assert effect[1].get("number", None) == 3
 
     card = Card(4, "spades")
     assert get_effect_name_kwargs(card)[0] == Card._skip_next_player.__name__
@@ -48,11 +56,98 @@ def test_can_play_standard():
 
 
 def test_can_play_queen():
-    center: Card = Card("queen", "spades")
-    played: Card = Card(9, "diamonds")
+    played: Card = Card("queen", "spades")
+    center: Card = Card(2, "diamonds")
     game_state: dict = {}
     assert center.can_play(played, **game_state) is True
 
-    center = Card(2, "hearts")
     played = Card("queen", "spades")
+    for value, suit in zip(VALUES, SUITS):
+        center = Card(value, suit)
+        if center == played:
+            with raises(CardPlayedOnItself):
+                center.can_play(played, **game_state)
+        else:
+            assert center.can_play(played, **game_state) is True
+
+    game_state = {"penalty": 2}
+    assert center.can_play(played, **game_state) is False
+
+    game_state = {"penalty": 5, "king": True}
+    center = Card("king", "spades")
+    assert center.can_play(played, **game_state) is False
+
+    game_state = {"skip": 1}
+    center = Card("4", "spades")
+    assert center.can_play(played, **game_state) is False
+
+    game_state = {"suit": ("diamonds", 1)}
+    center = Card("ace", "spades")
+    assert center.can_play(played, **game_state) is False
+
+    game_state = {"value": ("9", 3)}
+    center = Card("jack", "spades")
+    assert center.can_play(played, **game_state) is False
+
+
+def test_king():
+    center: Card = Card("king", "spades")
+    played: Card = Card(9, "spades")
+    game_state: dict = {"king": True}
+
+    assert center.can_play(played, **game_state) is False
+
+    for suit in SUITS:
+        played = Card("king", suit)
+        if center == played:
+            with raises(CardPlayedOnItself):
+                center.can_play(played, **game_state)
+        else:
+            assert center.can_play(played, **game_state) is True
+
+    played: Card = Card(9, "spades")
+    game_state: dict = {}
     assert center.can_play(played, **game_state) is True
+
+
+def test_can_play_four():
+    center: Card = Card(4, "spades")
+    played: Card = Card(4, "diamonds")
+    game_state: dict = {"skip": 1}
+    assert center.can_play(played, **game_state) is True
+
+    played = Card(5, "spades")
+    assert center.can_play(played, **game_state) is False
+
+
+def test_can_play_req_value():
+    center: Card = Card(7, "spades")
+    played: Card = Card(7, "diamonds")
+    game_state: dict = {"value": ("7", 1)}
+    assert center.can_play(played, **game_state) is True
+
+    played = Card(8, "spades")
+    assert center.can_play(played, **game_state) is False
+
+
+def test_can_play_req_suit():
+    center: Card = Card("ace", "spades")
+    played: Card = Card(9, "diamonds")
+    game_state: dict = {"suit": ("diamonds", 1)}
+    assert center.can_play(played, **game_state) is True
+
+    played = Card(9, "hearts")
+    assert center.can_play(played, **game_state) is False
+
+
+def test_can_play_penalty():
+    center: Card = Card(3, "spades")
+    played: Card = Card(3, "diamonds")
+    game_state: dict = {"penalty": 3}
+    assert center.can_play(played, **game_state) is True
+
+    played = Card(2, "spades")
+    assert center.can_play(played, **game_state) is True
+
+    played = Card(4, "spades")
+    assert center.can_play(played, **game_state) is False
