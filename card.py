@@ -24,6 +24,15 @@ class WrongCardSuit(Exception):
         super().__init__(message, suit)
 
 
+class CardPlayedOnItself(Exception):
+    def __init__(
+        self,
+        card: "Card",
+        message: str = "Card cannot be played on itself",
+    ) -> None:
+        super().__init__(message, repr(card))
+
+
 class Card:
     def __init__(self, value: Union[str, int], suit: str) -> None:
         """
@@ -78,6 +87,8 @@ class Card:
 
         # if self.value == "4" and played_card.value == "4":
         #     return True
+        if self == played_card:
+            raise CardPlayedOnItself(self)
         if four_played:
             return played_card.value == "4"
         elif req_value:
