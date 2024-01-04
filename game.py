@@ -509,8 +509,13 @@ class Game:
         if player.check_moved() or player.skip_turns:
             player.skip_turns -= 1 if player.skip_turns else 0
             player.reset_turn_status()
-            self.played_card = None
             self.change_current_player(decrement=backwards)
+
+    def print_current_move(self):
+        player: str = "Player" if not self.current_player_index else f"Computer{self.current_player_index}"
+        print(
+            f"Center card: {self.center_card}      Played card: {self.played_card}      Player: {player}"
+        )
 
     def play_card(
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
@@ -530,9 +535,11 @@ class Game:
                         " be played before"
                     )
                 player.play_card(played_card)
+                self.print_current_move()
                 self.discarded_deck.add_card(self.center_card)
                 self._center_card = played_card
                 played_card.play_effect(self)
+                self.played_card = None
         except PlayNotAllowedError:
             return
 
