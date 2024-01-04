@@ -37,3 +37,22 @@ def test_card_effect_assign():
     assert get_effect_name_kwargs(card)[0] == Card._no_effect.__name__
 
 
+def test_can_play_standard():
+    center: Card = Card(9, "spades")
+    played: Card = Card(9, "diamonds")
+    game_state: dict = {}
+    assert center.can_play(played, **game_state) is True
+
+    played = Card(10, "spades")
+    assert center.can_play(played, **game_state) is True
+
+
+def test_can_play_queen():
+    center: Card = Card("queen", "spades")
+    played: Card = Card(9, "diamonds")
+    game_state: dict = {}
+    assert center.can_play(played, **game_state) is True
+
+    center = Card(2, "hearts")
+    played = Card("queen", "spades")
+    assert center.can_play(played, **game_state) is True
