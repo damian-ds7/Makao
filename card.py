@@ -34,7 +34,8 @@ class Card:
         :raises WrongCardValue: Is raised if the value is not in the VALUES list
         :raises WrongCardSuit: Is raised if the suit is not in the SUITS list
         """
-        value = str(value)
+        value = str(value).lower()
+        suit = str(suit).lower()
         if value not in VALUES:
             raise WrongCardValue(value)
         if suit not in SUITS:
