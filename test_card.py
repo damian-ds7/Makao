@@ -19,13 +19,13 @@ def get_effect_name_kwargs(card: Card) -> tuple[str, dict]:
     return card.play_effect.func.__name__, card.play_effect.keywords
 
 
-def test_card_effect_assign():
+def test_card_effect_assign() -> None:
     card: Card = Card(2, "spades")
     effect = get_effect_name_kwargs(card)
     assert effect[0] == Card._draw_cards.__name__
     assert effect[1].get("number", None) == 2
 
-    card: Card = Card(3, "spades")
+    card = Card(3, "spades")
     effect = get_effect_name_kwargs(card)
     assert effect[0] == Card._draw_cards.__name__
     assert effect[1].get("number", None) == 3
@@ -45,7 +45,7 @@ def test_card_effect_assign():
     assert get_effect_name_kwargs(card)[0] == Card._no_effect.__name__
 
 
-def test_can_play_standard():
+def test_can_play_standard() -> None:
     center: Card = Card(9, "spades")
     played: Card = Card(9, "diamonds")
     game_state: dict = {}
@@ -55,7 +55,7 @@ def test_can_play_standard():
     assert center.can_play(played, **game_state) is True
 
 
-def test_can_play_queen():
+def test_can_play_queen() -> None:
     played: Card = Card("queen", "spades")
     center: Card = Card(2, "diamonds")
     game_state: dict = {}
@@ -90,7 +90,7 @@ def test_can_play_queen():
     assert center.can_play(played, **game_state) is False
 
 
-def test_king():
+def test_king() -> None:
     center: Card = Card("king", "spades")
     played: Card = Card(9, "spades")
     game_state: dict = {"king": True}
@@ -105,12 +105,12 @@ def test_king():
         else:
             assert center.can_play(played, **game_state) is True
 
-    played: Card = Card(9, "spades")
-    game_state: dict = {}
+    played = Card(9, "spades")
+    game_state = {}
     assert center.can_play(played, **game_state) is True
 
 
-def test_can_play_four():
+def test_can_play_four() -> None:
     center: Card = Card(4, "spades")
     played: Card = Card(4, "diamonds")
     game_state: dict = {"skip": 1}
@@ -120,7 +120,7 @@ def test_can_play_four():
     assert center.can_play(played, **game_state) is False
 
 
-def test_can_play_req_value():
+def test_can_play_req_value() -> None:
     center: Card = Card(7, "spades")
     played: Card = Card(7, "diamonds")
     game_state: dict = {"value": ("7", 1)}
@@ -130,7 +130,7 @@ def test_can_play_req_value():
     assert center.can_play(played, **game_state) is False
 
 
-def test_can_play_req_suit():
+def test_can_play_req_suit() -> None:
     center: Card = Card("ace", "spades")
     played: Card = Card(9, "diamonds")
     game_state: dict = {"suit": ("diamonds", 1)}
@@ -140,7 +140,7 @@ def test_can_play_req_suit():
     assert center.can_play(played, **game_state) is False
 
 
-def test_can_play_penalty():
+def test_can_play_penalty() -> None:
     center: Card = Card(3, "spades")
     played: Card = Card(3, "diamonds")
     game_state: dict = {"penalty": 3}
