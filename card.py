@@ -53,9 +53,13 @@ class Card:
         self._value: str = value
         self._suit: str = suit
         if value != "king":
-            self._play_effect: Callable = self.EFFECT_MAP.get(self.value, partial(self._no_effect))
+            self._play_effect: Callable = self.EFFECT_MAP.get(
+                self.value, partial(self._no_effect)
+            )
         else:
-            self._play_effect = self.KING_EFFECT_MAP.get(self.suit, partial(self._block_king))
+            self._play_effect = self.KING_EFFECT_MAP.get(
+                self.suit, partial(self._block_king)
+            )
 
     @property
     def value(self) -> str:
@@ -85,22 +89,25 @@ class Card:
         king_played: bool = kwargs.get("king", None)
         penalty: int = kwargs.get("penalty", None)
 
-        # if self.value == "4" and played_card.value == "4":
-        #     return True
         if self == played_card:
             raise CardPlayedOnItself(self)
-        if four_played:
-            return played_card.value == "4"
-        elif req_value:
-            return req_value[0] == played_card.value
-        elif req_suit:
-            return req_suit[0] == played_card.suit
-        elif penalty and not king_played:
-            return self.check_compatible(played_card) and played_card.value in ["2", "3"]
-        elif king_played:
-            return played_card.value == "king"
-        elif self.value == "queen" or played_card.value == "queen":
-            return True
+
+        conditions = [
+            (four_played, lambda: played_card.value == "4"),
+            (req_value, lambda: req_value[0] == played_card.value or played_card.value == "jack"),
+            (req_suit, lambda: req_suit[0] == played_card.suit or played_card.value == "ace"),
+            (
+                penalty and not king_played,
+                lambda: self.check_compatible(played_card)
+                and played_card.value in ["2", "3"],
+            ),
+            (king_played, lambda: played_card.value == "king"),
+            (self.value == "queen" or played_card.value == "queen", lambda: True),
+        ]
+
+        for condition, result in conditions:
+            if condition:
+                return result()
 
         return self.check_compatible(played_card)
 
