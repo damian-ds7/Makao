@@ -58,6 +58,7 @@ The game continues until a player has no cards left. For more detailed rules, pl
 5. Run the game: `python game.py [num_players]`
 
 ## Code description
+
 - Card class: represents a single card, has a value, suit and effect that's assigned based on it's value and suit
 - Deck class: represents a deck of cards, has a list of cards and methods to shuffle, draw and add cards to the deck, there can never be two cards with the same value and suit in the deck. Deck can be empty or unshuffled based on user needs.
 - HumanPlayer class: represents a player, has a list of cards and methods to draw, play and add cards to the player's hand.
@@ -65,6 +66,7 @@ The game continues until a player has no cards left. For more detailed rules, pl
 - Game class: represents a game, has a list of players, a deck, a discard pile and a current card. The game has methods to start, play and end the game
 
 ## What was achieved
+
 -Working game for 2-4 players, with a simple AI for computer players. The game has a simple UI that allows the user to play the game and see the current state of the game.
 -Ability to signal "Makao!" and "Makao and out!", computer can signal stop makao which can make user draw 5 cards if makao wasn't signaled
 -Thoroughout the game user can see the current state of the game: center card, number of cards in deck cards are drawn from, number of cards in each player's hand, in terminal there is also move history (what card was in the center, played card and player that played it)
