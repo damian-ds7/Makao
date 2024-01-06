@@ -33,10 +33,13 @@ The game continues until a player has no cards left. For more detailed rules, pl
 
 ## Visuals
 <p float="left">
-  <img src="./images/normal_board.png" width="500" style="margin-right: 10px;" />
+  <img src="./images/normal_board.png" width="500" style="margin-right: 40;" />
   <img src="./images/mid_game.png" width="500" /> 
 </p>
-
+<p float="left">
+  <img src="./images/suit_selection.png" width="500" style="margin-right: 40;" />
+  <img src="./images/value_selection.png" width="500" /> 
+</p>
 ## Install and run program
 1. Clone the repository: `git clone https://gitlab-stud.elka.pw.edu.pl/ddsouza/makao-projekt-pipr-damian-dsouza`
 2. Navigate to the project directory: `cd makao-projekt-pipr-damian-dsouza`
