@@ -524,7 +524,7 @@ class Game:
 
         self.played_card = None
 
-    def print_current_move(self):
+    def print_current_move(self) -> None:
         player: str = "Human Player" if not self.current_player_index else f"Computer{self.current_player_index}"
         print(
             f"Center card: {self.center_card}      Played card: {self.played_card}      Player: {player}"
@@ -555,7 +555,7 @@ class Game:
         except PlayNotAllowedError:
             return
 
-    def check_card_click(self, mouse_pos: tuple[int, int]) -> Optional[Card]:
+    def _check_card_click(self, mouse_pos: tuple[int, int]) -> Optional[Card]:
         """
         Check if a card has been clicked based on the mouse position.
 
@@ -568,22 +568,24 @@ class Game:
                 return card
         return None
 
-    def _computer_play_cards(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+    def _computer_play_cards(self, player: ComputerPlayer) -> None:
         players = self.players.copy()
         game_state: dict[str, Union[list, Card]] = {
             "players": players,
             "center": self.center_card,
         }
         game_state.update(self.game_params)
-        self.played_card: Optional[Card] = player.find_best_plays(**game_state)
+        computer_moves: list[Card] = player.find_best_plays(**game_state)
 
-        if not self.played_card:
+        if not computer_moves:
             self.take_cards(player)
             return
-
-        self.play_card(self.played_card, player)
-        if len(player.hand) == 1:
-            self.makao(player)
+        for played_card in computer_moves:
+            self.played_card = played_card
+            self.play_card(self.played_card, player)
+            if len(player.hand) == 1:
+                self.makao(player)
+            sleep(1)
 
     def play_turn(self) -> None:
         """
@@ -629,7 +631,7 @@ class Game:
         if pg.mouse.get_pressed()[2]:
             return None
         mouse_pos: tuple[int, int] = pg.mouse.get_pos()
-        if card := self.check_card_click(mouse_pos):
+        if card := self._check_card_click(mouse_pos):
             return card
         return None
 
@@ -862,7 +864,7 @@ class Game:
 
         if not 0 <= position <= 3:
             raise WrongPosition(position)
-        if player in self.finished_players:
+        if player.rank:
             return
 
         card_width: int
