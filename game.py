@@ -432,6 +432,7 @@ class Game:
             return
 
         try:
+            self.print_draw(number)
             while number != 0:
                 player.draw_card(self.deck)
                 number -= 1
@@ -529,7 +530,19 @@ class Game:
     def print_current_move(self) -> None:
         player: str = "Human Player" if not self.current_player_index else f"Computer{self.current_player_index}"
         print(
-            f"Center card: {self.center_card}      Played card: {self.played_card}      Player: {player}"
+            f"{player} has played {self.played_card} on {self.center_card} "
+        )
+
+    def print_skip(self) -> None:
+        player: str = "Human Player" if not self.current_player_index else f"Computer{self.current_player_index}"
+        print(
+            f"{player} skipped"
+        )
+
+    def print_draw(self, number: int) -> None:
+        player: str = "Human Player" if not self.current_player_index else f"Computer{self.current_player_index}"
+        print(
+            f"{player} has drawn {number} card{'s' if number > 1 else ''}"
         )
 
     def _play_card(
@@ -629,6 +642,7 @@ class Game:
                 player.played_king = False
             self._next_turn()
             player.skip_turns = max(player.skip_turns - 1, 0)
+            self.print_skip()
             return True
         return False
 
@@ -883,7 +897,9 @@ class Game:
         card_image: Surface = image.load(self.center_card.get_image_name())
         x: int = (self.window_width - self.card_width) // 2 - self.card_width // 2
         y: int = (self.window_height - self.card_height) // 2
+        card_rect = Rect(x, y, self.card_width, self.card_height)
         self.window.blit(card_image, (x, y))
+        pg.display.update(card_rect)
 
     def _render_cards(
         self, player: Union[ComputerPlayer, HumanPlayer], all_visible: bool = False
@@ -1143,11 +1159,11 @@ class Game:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Start a new game")
-    parser.add_argument("num_players", type=int, help="The number of players")
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description="Start a new game")
+    # parser.add_argument("num_players", type=int, help="The number of players")
+    # args = parser.parse_args()
 
-    game = Game(args.num_players)
+    game = Game(4)
     game.start()
 
 
