@@ -78,10 +78,21 @@ class Card:
 
     def can_play(self, played_card: "Card", **kwargs) -> bool:
         """
-        Checks if the card selected by the player can be played.
+        Checks if the card selected by the player can be played
 
-        :param played_card: The card that is currently played.
-        :return: True if the selected card can be played, False otherwise.
+        :param played_card: The card that is currently played
+
+        :key req_suit: Tuple with required suit and number of turns it will stay
+        :key req_value: Tuple with required value and number of turns it will stay
+        :key four_played: True if four was played
+        :key king_played: True if king was played
+        :key jack_played: True if jack was played
+        :key ace_played: True if ace was played
+        :key penalty: Penalty value
+
+        :raises CardPlayedOnItself: If two identical cards are compared
+
+        :return: True if the selected card can be played, False otherwise
         """
         req_suit: tuple[str, int] = kwargs.get("suit", None)
         req_value: tuple[str, int] = kwargs.get("value", None)
@@ -108,12 +119,14 @@ class Card:
             (
                 jack_played,
                 lambda: self.check_compatible(played_card)
-                and played_card.value not in ["2", "3", "4", "ace", "king"],
+                and played_card.value not in ["2", "3", "4", "jack"]
+                and not (played_card.value == "king" and played_card.suit in ["spades", "hearts"])
             ),
             (
                 ace_played,
                 lambda: self.check_compatible(played_card)
-                and played_card.value not in ["2", "3", "4", "jack", "king"],
+                and played_card.value not in ["2", "3", "4", "jack"]
+                and not (played_card.value == "king" and played_card.suit in ["spades", "hearts"])
             ),
             (
                 penalty and not king_played,
@@ -139,27 +152,27 @@ class Card:
 
     @staticmethod
     def _draw_cards(game: "Game", number: int) -> None:
-        game.increase_penalty(number)
+        game._increase_penalty(number)
 
     @staticmethod
     def _skip_next_player(game: "Game") -> None:
-        game.increment_skip()
+        game._increment_skip()
 
     @staticmethod
     def _request_value(game: "Game") -> None:
-        game.jack_played()
+        game._jack_played()
 
     @staticmethod
     def _king_draw_cards(game: "Game", previous: bool = False) -> None:
-        game.king_played(previous=previous)
+        game._king_played(previous=previous)
 
     @staticmethod
     def _block_king(game: "Game") -> None:
-        game.reset_king()
+        game._reset_king()
 
     @staticmethod
     def _request_suit(game: "Game") -> None:
-        game.ace_played()
+        game._ace_played()
 
     EFFECT_MAP: dict[str, Callable] = {
         "2": partial(_draw_cards, number=2),
