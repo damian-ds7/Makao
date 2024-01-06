@@ -38,7 +38,7 @@ class Card:
         """
         Represents a card from a deck of cards.
 
-        :param value: card's value, from 2 to A
+        :param value: card's value, from 2 to ace
         :param suit: card's suit: clubs, spades, diamonds, hearts
         :raises WrongCardValue: Is raised if the value is not in the VALUES list
         :raises WrongCardSuit: Is raised if the suit is not in the SUITS list

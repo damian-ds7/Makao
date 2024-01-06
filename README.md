@@ -32,14 +32,16 @@ Each player is dealt five cards at the start of the game. The remaining cards fo
 The game continues until a player has no cards left. For more detailed rules, please refer to the [Polish Wikipedia page](https://pl.wikipedia.org/wiki/Makao_(gra_karciana)).
 
 ## Visuals
+
 <p float="left">
   <img src="./images/normal_board.png" width="500" style="margin-right: 40;" />
-  <img src="./images/mid_game.png" width="500" /> 
+  <img src="./images/mid_game.png" width="500" />
 </p>
 <p float="left">
   <img src="./images/suit_selection.png" width="500" style="margin-right: 40;" />
-  <img src="./images/value_selection.png" width="500" /> 
+  <img src="./images/value_selection.png" width="500" />
 </p>
+
 ## Install and run program
 1. Clone the repository: `git clone https://gitlab-stud.elka.pw.edu.pl/ddsouza/makao-projekt-pipr-damian-dsouza`
 2. Navigate to the project directory: `cd makao-projekt-pipr-damian-dsouza`
@@ -54,11 +56,20 @@ The game continues until a player has no cards left. For more detailed rules, pl
 4. Install the required packages: `pip install -r requirements.txt`
 5. Run the game: `python game.py [num_players]`
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## Code description
+- Card class: represents a single card, has a value, suit and effect that's assigned based on it's value and suit
+- Deck class: represents a deck of cards, has a list of cards and methods to shuffle, draw and add cards to the deck, there can never be two cards with the same value and suit in the deck. Deck can be empty or unshuffled based on user needs.
+- HumanPlayer class: represents a player, has a list of cards and methods to draw, play and add cards to the player's hand.
+- ComputerPlayer class: represents a computer player it inherits beasic methods from HumanPlayer. The computer player has a simple AI that decides which card to play based on the current card, and game parameters.
+- Game class: represents a game, has a list of players, a deck, a discard pile and a current card. The game has methods to start, play and end the game
 
-## License
-For open source projects, say how it is licensed.
+## What was achieved
+-Working game for 2-4 players, with a simple AI for computer players. The game has a simple UI that allows the user to play the game and see the current state of the game.
+-Ability to signal "Makao!" and "Makao and out!", computer can signal stop makao which can make user draw 5 cards if makao wasn't signaled
+-Thoroughout the game user can see the current state of the game: center card, number of cards in deck cards are drawn from, number of cards in each player's hand, in terminal there is also move history (what card was in the center, played card and player that played it)
+-After game is over list with every player's rank is shown.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## Things to improve
+
+- Optimize AI strategy to work faster on larger set of cards, currently it can get slower when player has around 15 cards. Add option to track all cards played in game to imporve decison making, and predict what cards other players have.
+- Optimize game rendering, currently entire game is rendered every frame, this can be improved by only rendering the parts that change.
