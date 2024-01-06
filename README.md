@@ -5,7 +5,7 @@
 - [Name](#name)
 - [Description](#description)
 - [Visuals](#visuals)
-- [Installation](#Install-and-run-program)
+- [Installation](#install-and-run-program)
 - [Code description](#code-description)
 - [What was achieved](#what-was-achieved)
 - [Things to improve](#things-to-improve)
