@@ -1,4 +1,4 @@
-from typing import Optional, Union, Any
+from typing import Generator, Optional, Union, Any
 from deck import Deck
 from card import Card
 
@@ -146,30 +146,63 @@ class ComputerPlayer(HumanPlayer):
     def player_info(self, human_computer: str = "Computer player") -> tuple:
         return super().player_info(human_computer)
 
+    def find_best_plays(self, **kwargs) -> list[Card]:
+        """
+        Finds the best plays based on the given game parameters and player data.
+
+        :param kwargs: Additional keyword arguments for game parameters.
+
+        :returns: Moves for computer to play.
+        """
+        game_params: dict[str, Any] = kwargs
+        players: list[Union[HumanPlayer, "ComputerPlayer"]] = kwargs.pop("players", [])
+        self.previous_len: int
+        self.next_len: int
+        self.previous_len, self.next_len = self._get_player_data(players)
+        possible_first_moves: list[Card] = self._get_possible_moves(**game_params)
+        possible_movesets: list[tuple[str, list[Card]]] = self._get_movesets(
+            possible_first_moves, **kwargs
+        )
+
+        if len(possible_movesets) == 1 and possible_movesets[0][0] == "end":
+            return possible_movesets[0][1]
+
+        best_moves: list[Card] = (
+            []
+            if not possible_movesets
+            else min(
+                possible_movesets,
+                key=lambda moveset: self.move_sort_key(moveset[0], len(moveset[1])),
+            )[1]
+        )
+        return best_moves
+
     def _get_player_data(
-        self, players: list[Union[HumanPlayer, "ComputerPlayer"]], player_index: int
+        self, players: list[Union[HumanPlayer, "ComputerPlayer"]]
     ) -> tuple[int, int]:
         """
-        Get the length of the previous and next player's hand.
+        Get the length of the previous and next player's hand
 
-            :param players: The list of players.
-            :param player_index: The index of the current player.
-            :return: A tuple containing the length of the previous player's hand and the next player's hand
+        :param players: The list of players
+        :return: A tuple containing the length of the previous player's hand and the next player's hand
         """
-        previous_player: Union[HumanPlayer, "ComputerPlayer"] = None
-        next_player: Union[HumanPlayer, "ComputerPlayer"] = None
-        for i in range(len(players) // 2):
+        player_index: int = players.index(self)
+        previous_player: Optional[Union[HumanPlayer, "ComputerPlayer"]] = None
+        next_player: Optional[Union[HumanPlayer, "ComputerPlayer"]] = None
+        for i in range(1, len(players) // 2 + 1):
             if not previous_player:
                 previous_player = players[player_index - i]
                 previous_player = (
                     previous_player
-                    if not (previous_player.rank or previous_player.skip)
+                    if not (previous_player.rank or previous_player.skip_turns)
                     else None
                 )
             if not next_player:
                 next_player = players[player_index + i]
                 next_player = (
-                    next_player if not (next_player.rank or next_player.skip) else None
+                    next_player
+                    if not (next_player.rank or next_player.skip_turns)
+                    else None
                 )
 
         previous_len: int = len(previous_player.hand)
@@ -177,42 +210,174 @@ class ComputerPlayer(HumanPlayer):
 
         return previous_len, next_len
 
-    def _get_possible_moves(self, center_card: Card, **kwargs) -> list[Card]:
+    @staticmethod
+    def _get_move_descriptor(moveset: list[Card]) -> str:
+        """
+        Get the move descriptor for a given card
+
+        :param card: The card for which to get the move descriptor
+        :return: Description of card's effect on the game
+        """
+        descriptors: dict[str, str] = {
+            "2": "next_draw",
+            "3": "next_draw",
+            "4": "skip",
+            "jack": "value_req",
+            "ace": "suit_req",
+        }
+        king_descriptors: dict[str, str] = {
+            "spades": "king_prev_draw",
+            "hearts": "king_next_draw",
+        }
+        card = moveset[-1]
+        val: str = card.value
+        suit: str = card.suit
+        descriptor = (
+            descriptors.get(val, "normal")
+            if val != "king"
+            else king_descriptors.get(suit, "normal")
+        )
+
+        value = next(
+            (card.value for card in moveset if card.value in ["jack", "ace"]), None
+        )
+        if descriptor == "normal" and value is not None:
+            descriptor = descriptors[value]
+        return descriptor
+
+    def _get_possible_moves(self, **kwargs) -> list[Card]:
         """
         Returns a list of possible first moves for the player
 
         :param center_card: center card
         :return: list of possible moves
         """
-        return [card for card in self.hand if center_card.can_play(card, **kwargs)]
+        center_card: Card = kwargs.get("center", None)
+        possible_moves: list[Card] = []
+        for card in self.hand:
+            if center_card.can_play(card, **kwargs):
+                possible_moves.append(card)
+        return possible_moves
 
-    def _simulate_params(self, first_move: Card) -> dict[str, Any]:
+    @staticmethod
+    def _simulate_params(first_move: Card, **kwargs) -> dict[str, Any]:
+        """
+        Simulates the parameters for a game based on the first move card
+
+        :param first_move: The first move card
+        :param kwargs: Additional keyword arguments for customizing the game parameters
+        :return: A dictionary containing the simulated game parameters
+        """
         game_params: dict[str, Any] = {}
-        first_move_val: str = first_move.value
-        if first_move_val in ["2", "3"]:
+        val: str = first_move.value
+        suit: str = first_move.suit
+        if val in ["2", "3"]:
             game_params.update({"penalty": int(first_move.value)})
-        elif first_move_val == "4":
+        elif val == "4":
             game_params.update({"skip": 1})
+        elif val == "king" and suit in ["spades", "hearts"]:
+            game_params.update({"king": True})
+        elif val == "ace":
+            game_params.update({"ace": True})
+        elif val == "jack":
+            game_params.update({"jack": True})
+
+        if "value" in kwargs:
+            game_params.update({"value": kwargs["value"]})
+        if "suit" in kwargs:
+            game_params.update({"suit": kwargs["suit"]})
 
         return game_params
 
-    def _get_next_moves(self, first_move: Card):
-        pass
+    def _generate_permutations(
+        self, moveset: list[Card] = [], **kwargs
+    ) -> Generator[list[Card], None, None]:
+        """
+        Generates all possible permutations of movesets based on the current moveset and available cards.
 
-    def find_best_plays(self, **kwargs) -> Optional[Card]:
-        center_card: Card = kwargs.get("center", None)
-        players: list[Union[HumanPlayer, "ComputerPlayer"]] = kwargs.get(
-            "players", None
+        :param moveset: List of already added moves, last item is the last played card
+        :param **kwargs: Additional keyword arguments used to create simulated_params dict.
+        :return: A generator that yields possible movesets
+        """
+        current_card: Card = moveset[-1]
+        params: dict[str, Any] = self._simulate_params(current_card, **kwargs)
+        cards = list(
+            filter(
+                lambda card: card != current_card
+                and card not in moveset
+                and current_card.can_play(card, **params),
+                self.hand,
+            )
         )
-        player_index: int = players.index(self)
-        req_suit: tuple = kwargs.get("suit", None)
-        req_value: tuple = kwargs.get("value", None)
-        four_played: bool = kwargs.get("skip", None)
-        king_played: bool = kwargs.get("king", None)
-        penalty: int = kwargs.get("penalty", None)
-        for card in self.hand:
-            if center_card and center_card.can_play(card, **kwargs):
-                if card.value in ("jack", "ace"):
-                    return None
-                return card
-        return None
+        if not cards or (
+            current_card.value == "king" and current_card.suit in ["spades", "hearts"]
+        ):
+            yield moveset
+        else:
+            for i, next_card in enumerate(cards):
+                if current_card.can_play(next_card):
+                    yield from self._generate_permutations(
+                        moveset + [next_card], **kwargs
+                    )
+
+    def _get_movesets(self, first_moves: list[Card], **kwargs) -> list[tuple[str, list[Card]]]:
+        """
+        Get the possible movesets based on the first moves and other optional arguments.
+
+        :param first_moves: The list of first moves player can make
+        :param **kwargs: Optional keyword arguments passed to
+                         _generate_permutations to simulate game_params
+
+        :return: The list of possible movesets, where each moveset is represented as a tuple
+            containing a descriptor string and a list of cards
+
+        """
+        possible_movesets: list[tuple[str, list[Card]]] = []
+        for first_move in first_moves:
+            moves: list[Card] = [first_move]
+            for permutation in self._generate_permutations(moves, **kwargs):
+                if len(permutation) <= 4 and len(permutation) == len(self.hand):
+                    return [("end", permutation)]
+                descriptor: str = self._get_move_descriptor(permutation)
+                if len(permutation) == len(self.hand) and len(permutation) > 4:
+                    possible_movesets.append(
+                        (descriptor, permutation[: len(permutation) - 1])
+                    )
+                else:
+                    possible_movesets.append((descriptor, permutation))
+
+        return possible_movesets
+
+    def move_sort_key(self, descriptor: str, moveset_len: int):
+        """
+        Sorts the movesets based on their importance.
+
+        :param descriptor: The descriptor for the moveset.
+        :return: The importance of the moveset.
+                 The smaller it is the more importan move is
+        """
+        movesets_importance: dict[str, int] = {
+            "king_next_draw": 1,
+            "next_draw": 2,
+            "king_prev_draw": 3,
+            "value_req": 4,
+            "suit_req": 4,
+            "skip": 4,
+            "normal": 5,
+        }
+
+        if self.previous_len > self.next_len:
+            (
+                movesets_importance["king_next_draw"],
+                movesets_importance["king_prev_draw"],
+            ) = (
+                movesets_importance["king_prev_draw"],
+                movesets_importance["king_next_draw"],
+            )
+
+        if self.previous_len <= len(self.hand):
+            movesets_importance["skip"] = movesets_importance["next_draw"]
+
+        movesets_importance[descriptor] -= moveset_len
+
+        return movesets_importance[descriptor]
