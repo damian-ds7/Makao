@@ -13,6 +13,7 @@ from pygame_widgets.mouse import Mouse, MouseState  # type: ignore
 from typing import Callable, Optional, Union, Any
 from functools import partial
 from time import sleep
+import argparse
 
 
 class WrongCoord(ValueError):
@@ -64,8 +65,8 @@ class ImageButton(Button):
 
     def draw_text(self, **kwargs) -> None:
         """Draw the button text."""
-        if kwargs:
-            new_len: str = kwargs.get("new_len", None)
+        new_len: str = kwargs.get("new_len", None)
+        if new_len:
             self.setText(new_len)
         self.textRect: Rect = self.text.get_rect()
         self.alignTextRect()
@@ -177,11 +178,9 @@ class Game:
         self._game_over: bool = False
         self._current_player_index: int = 0
         self._game_params: dict[str, Any] = {}
-        # self._finished_move: bool = False
         self.played_card: Optional[Card] = None
-        self._current_rank: int = 1
+        self._finished: list[Union[HumanPlayer, ComputerPlayer]] = []
         self._init_pygame()
-        self._create_buttons()
 
     def _init_pygame(self) -> None:
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
@@ -200,25 +199,29 @@ class Game:
         self._window: Surface = pg.display.set_mode(
             (self._window_width, self._window_height)
         )
+        self.sleep_time: int = 1
+        self._create_buttons()
 
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
         return self._players
 
     @property
-    def current_rank(self) -> int:
-        return self._current_rank
+    def finished(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
+        return self._finished
 
-    def increment_rank(self) -> None:
-        self._current_rank += 1
+    def _change_rank(self, decrement: bool = False) -> None:
+        multiplier: int = -1 if decrement else 1
+        self._current_rank += 1 * multiplier
 
-    def player_finish(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
-        player.rank = self.current_rank
-        self.increment_rank()
+    def _player_finish(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+        if self.players.index(player) == 0:
+            self.sleep_time = 0
+        self.finished.append(player)
 
-    def check_if_finished(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+    def _check_if_finished(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
         if len(player.hand) == 0:
-            self.player_finish(player)
+            self._player_finish(player)
 
     @property
     def deck(self) -> Deck:
@@ -240,15 +243,11 @@ class Game:
     def current_player_index(self) -> int:
         return self._current_player_index
 
-    def change_current_player(self, decrement: bool = False) -> None:
-        if not decrement:
-            self._current_player_index = (self.current_player_index + 1) % len(
-                self.players
-            )
-        else:
-            self._current_player_index = (self.current_player_index - 1) % len(
-                self.players
-            )
+    def _change_current_player(self, decrement: bool = False) -> None:
+        multiplier: int = -1 if decrement else 1
+        self._current_player_index = (self.current_player_index + 1 * multiplier) % len(self.players)
+        while self.players[self.current_player_index] in self.finished:
+            self._current_player_index = (self.current_player_index + 1 * multiplier) % len(self.players)
 
     @property
     def center_card(self) -> Card:
@@ -262,19 +261,15 @@ class Game:
     def game_rects(self) -> dict[str, list]:
         return self._game_rects
 
-    # @property
-    # def finished_move(self) -> bool:
-    #     return self._finished_move
-
     @property
     def get_skip(self) -> int:
         return self.game_params.get("skip", 0)
 
-    def increment_skip(self) -> None:
+    def _increment_skip(self) -> None:
         val = self.get_skip
         self.game_params.update({"skip": val + 1})
 
-    def reset_skip(self) -> None:
+    def _remove_skip(self) -> None:
         if self.game_params.get("skip", None):
             self.game_params.pop("skip")
 
@@ -330,65 +325,75 @@ class Game:
     def font_size(self) -> int:
         return self._font_size
 
-    def get_previous_player(self) -> Union[HumanPlayer, ComputerPlayer]:
-        return self.players[self.current_player_index - 1]
+    def _get_previous_player(self, player: Union[HumanPlayer, ComputerPlayer]) -> Union[HumanPlayer, ComputerPlayer]:
+        previous = self.players[(self.players.index(player) - 1) % len(self.players)]
+        while previous in self.finished:
+            previous = self._get_previous_player(previous)
+        return previous
+
+    def _get_next_player(self, player: Union[HumanPlayer, ComputerPlayer]) -> Union[HumanPlayer, ComputerPlayer]:
+        next_player = self.players[(self.players.index(player) + 1) % len(self.players)]
+        while next_player in self.finished:
+            next_player = self._get_next_player(next_player)
+        return next_player
 
     def get_current_player(self) -> Union[HumanPlayer, ComputerPlayer]:
         return self.players[self.current_player_index]
 
-    def increase_penalty(self, to_add: int) -> None:
+    def _increase_penalty(self, to_add: int) -> None:
         key, val = "penalty", self.game_params.get("penalty", None) or 0
         self.game_params.update({key: val + to_add})
 
-    def reset_penalty(self):
+    def _reset_penalty(self):
         if self.game_params.get("penalty", None):
             self.game_params.pop("penalty")
 
-    def draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], number: int = 0):
+    def _draw_penalty(self, player: Union[HumanPlayer, ComputerPlayer], number: int = 0):
         player.penalty = True
         draw: int = self.get_penalty if not number else number
         if not draw:
             return
         if self.get_penalty:
-            self.reset_penalty()
-        self.reset_king()
-        self.take_cards(player, draw)
+            self._reset_penalty()
+        self._reset_king()
+        self._take_cards(player, draw)
         player.penalty = False
 
-    def king_played(self, **kwargs) -> None:
+    def _king_played(self, **kwargs) -> None:
         """
         Updates the game state when a king card is played.
 
-        :param previous: Indicates if the previous or next player will have to draw penalty
+        :key previous: Indicates if the previous or next player will have to draw penalty
+
         :return: None
         """
         previous: bool = kwargs.get("previous", None)
         player = self.get_current_player()
         self.game_params.update({"king": True})
-        self.increase_penalty(5)
+        self._increase_penalty(5)
         if previous:
             player.skip_turns += 2  # Additional turn added to compensate for next_turn
             player.played_king = True
-        self.next_turn(backwards=previous)
+        self._next_turn(backwards=previous)
 
-    def reset_king(self) -> None:
+    def _reset_king(self) -> None:
         if self.game_params.get("king", None):
             self.game_params.pop("king")
-            self.reset_penalty()
+            self._reset_penalty()
 
-    def jack_played(self) -> None:
+    def _jack_played(self) -> None:
         """
         Adds flag that jack was played so that slection menu will pop up at the end of turn
         """
         self.game_params.update({"jack": True})
 
-    def ace_played(self):
+    def _ace_played(self):
         """
         Adds flag that ace was played so that slection menu will pop up at the end of turn
         """
         self.game_params.update({"ace": True})
 
-    def selection(self, items: list[str]) -> None:
+    def _selection(self, items: list[str]) -> None:
         """
         Allows the player to make a selection from a list of items.
 
@@ -399,8 +404,7 @@ class Game:
             menu: SelectionMenu = SelectionMenu(items, self.window)
             selected_index: int = menu.run()
         else:
-            # TODO: algorithm for player to adapt to required cards
-            pass
+            selected_index = self.get_current_player().selection(items)
 
         if self.game_params.get("jack", None):
             self.game_params.pop("jack")
@@ -414,7 +418,7 @@ class Game:
             self.game_params.update({"suit": (items[selected_index], 1)})
             self.game_params.pop("ace")
 
-    def take_cards(
+    def _take_cards(
         self, player: Union[HumanPlayer, ComputerPlayer], number: int = 1
     ) -> None:
         """
@@ -428,7 +432,7 @@ class Game:
 
         #  if user presses the button and has a penalty to draw, instead of one card the entire penalty will be drawn
         if self.get_penalty:
-            self.draw_penalty(player)
+            self._draw_penalty(player)
             return
 
         try:
@@ -447,7 +451,7 @@ class Game:
 
         player.makao_set_reset(False)
 
-    def makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+    def _makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
         if (
             len(player.hand) > 1
             or self.players.index(player) != self.current_player_index
@@ -457,23 +461,25 @@ class Game:
             player.makao_set_reset(True)
         print("Makao")
 
-    def makao_out(self, player: Union[HumanPlayer, ComputerPlayer]):
+    def _makao_out(self, player: Union[HumanPlayer, ComputerPlayer]):
         if len(player.hand) != 0:
             return
-        self.makao(player)
-        self.next_turn()
+        self._makao(player)
+        self._next_turn()
 
-    def stop_makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
+    def _stop_makao(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
         if self.players.index(player) != self.current_player_index:
             return
-        previous_player: Union[HumanPlayer, ComputerPlayer] = self.get_previous_player()
-        if len(previous_player.hand) in [0, 1] and not player.makao_status:
-            self.change_current_player(decrement=True)
-            self.draw_penalty(previous_player, number=5)
-            self.change_current_player()
+        previous_player: Union[HumanPlayer, ComputerPlayer] = self._get_previous_player(player)
+        if len(previous_player.hand) in [0, 1] and not previous_player.makao_status:
+            self._change_current_player(decrement=True)
+            self._draw_penalty(previous_player, number=5)
+            self._change_current_player()
             print("Stop Makao")
+        elif len(previous_player.hand) == 0:
+            self._check_if_finished(previous_player)
 
-    def update_req_params(self) -> None:
+    def _update_req_params(self) -> None:
         """
         Update the required parameters for the game.
 
@@ -498,29 +504,29 @@ class Game:
                 else:
                     self.game_params.update({key: req})
 
-    def next_turn(self, backwards: bool = False) -> None:
+    def _next_turn(self, backwards: bool = False) -> None:
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
         # if self.penalty_draw:
         #     self.draw_penalty(player)
-        self.check_if_finished(player)
-        self.update_req_params()
+        # self._check_if_finished(player)
+        self._update_req_params()
         jack: bool = self.game_params.get("jack", False)
         ace: bool = self.game_params.get("ace", False)
         if jack or ace:
             items: list[str] = SUITS if ace else VALUES[3:9] + ["None"]
-            self.selection(items)
+            self._selection(items)
 
         if self.get_penalty and not player.cards_played:
-            self.draw_penalty(player)
+            self._draw_penalty(player)
 
         if self.get_skip and not self.played_card:
             player.skip_turns = self.get_skip
-            self.reset_skip()
+            self._remove_skip()
 
         if player.check_moved() or player.skip_turns:
             player.skip_turns -= 1 if player.skip_turns else 0
             player.reset_turn_status()
-            self.change_current_player(decrement=backwards)
+            self._change_current_player(decrement=backwards)
 
         self.played_card = None
 
@@ -530,7 +536,7 @@ class Game:
             f"Center card: {self.center_card}      Played card: {self.played_card}      Player: {player}"
         )
 
-    def play_card(
+    def _play_card(
         self, played_card: Card, player: Union[HumanPlayer, ComputerPlayer]
     ) -> None:
         """
@@ -552,6 +558,7 @@ class Game:
                 self.discarded_deck.add_card(self.center_card)
                 self._center_card = played_card
                 played_card.play_effect(self)
+                self._render_center_card()
         except PlayNotAllowedError:
             return
 
@@ -569,25 +576,27 @@ class Game:
         return None
 
     def _computer_play_cards(self, player: ComputerPlayer) -> None:
-        players = self.players.copy()
+        prev_len: int = len(self._get_previous_player(player).hand)
+        next_len: int = len(self._get_next_player(player).hand)
         game_state: dict[str, Union[list, Card]] = {
-            "players": players,
             "center": self.center_card,
+            "prev_len": prev_len,
+            "next_len": next_len
         }
         game_state.update(self.game_params)
         computer_moves: list[Card] = player.find_best_plays(**game_state)
 
         if not computer_moves:
-            self.take_cards(player)
+            self._take_cards(player)
             return
         for played_card in computer_moves:
             self.played_card = played_card
-            self.play_card(self.played_card, player)
             if len(player.hand) == 1:
-                self.makao(player)
-            sleep(1)
+                self._makao(player)
+            self._play_card(self.played_card, player)
+            sleep(self.sleep_time)
 
-    def play_turn(self) -> None:
+    def _play_turn(self) -> None:
         """
         Plays a turn in the game.
 
@@ -598,28 +607,47 @@ class Game:
         :return: None
         """
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
-        if player.rank:
-            self.next_turn()
-            return
-        if player.skip_turns:
-            if player.played_king:
-                self.draw_penalty(player)
-                player.played_king = False
-            self.next_turn()
-            player.skip_turns = max(player.skip_turns - 1, 0)
+        if player in self.finished:
+            self._next_turn()
             return
         if self.current_player_index:
-            self.stop_makao(player)
+            self._stop_makao(player)
+            if self._skip_turn(player):
+                return
             self._computer_play_cards(player)
-            self.next_turn()
-            sleep(1)
+            self._next_turn()
         else:
-            self.play_card(self.played_card, player)  # type: ignore
+            self._play_card(self.played_card, player)  # type: ignore
 
-    def handle_quit_event(self) -> None:
+    def _skip_turn(self, player: Union[HumanPlayer, ComputerPlayer]) -> bool:
+        """
+        Checks if player has skip turns and handles skip
+
+        :param player: The player whose turn is to be skipped.
+
+        :return: True if the turn was successfully skipped, False otherwise.
+        """
+        if player.skip_turns or player in self.finished:
+            if player.played_king:
+                self._draw_penalty(player)
+                player.played_king = False
+            self._next_turn()
+            player.skip_turns = max(player.skip_turns - 1, 0)
+            return True
+        return False
+
+    def _handle_human_turn(self) -> None:
+        if self._skip_turn(self.get_current_player()):
+            return
+        played_card: Optional[Card] = self._handle_mouse_button_down_event()
+        if played_card:
+            self.played_card = played_card
+            self._play_turn()
+
+    def _handle_quit_event(self) -> None:
         self._game_over = True
 
-    def handle_mouse_button_down_event(self) -> Optional[Card]:
+    def _handle_mouse_button_down_event(self) -> Optional[Card]:
         """
         Handles the mouse button down event.
 
@@ -635,7 +663,7 @@ class Game:
             return card
         return None
 
-    def handle_video_resize_event(self, event: Event) -> None:
+    def _handle_video_resize_event(self, event: Event) -> None:
         """
         Handle the video resize event.
 
@@ -685,10 +713,10 @@ class Game:
         :return: None
         """
         self.window.fill(self.background_color)
-        self.render_center_card()
-        self.render_game_info()
+        self._render_center_card()
+        self._render_game_info()
         for player in self.players:
-            self.render_cards(player, all_visible=True)
+            self._render_cards(player, all_visible=False)
         self._handle_buttons(events)
         pg.display.update()
 
@@ -700,29 +728,35 @@ class Game:
             events: list[Event] = pg.event.get()
             for event in events:
                 if event.type == pg.QUIT:
-                    self.handle_quit_event()
-                elif event.type == pg.MOUSEBUTTONDOWN:
+                    self._handle_quit_event()
+                elif event.type == pg.MOUSEBUTTONDOWN and not self.players[0] in self.finished:
                     if self.current_player_index:
                         continue
-                    played_card: Optional[Card] = self.handle_mouse_button_down_event()
-                    if played_card:
-                        self.played_card = played_card
-                        self.play_turn()
+                    self._handle_human_turn()
                 elif event.type == pg.VIDEORESIZE:
-                    self.handle_video_resize_event(event)
-            if self.current_player_index:
-                self.play_turn()
+                    self._handle_video_resize_event(event)
             self._render_game(events)
-            if self.current_rank == 3:
-                self.display_result
-                self.handle_quit_event()
+            if len(self.finished) == 3:
+                self._handle_quit_event()
+            if self.current_player_index:
+                self._play_turn()
 
         pg.quit()
+        self.display_result()
 
     def display_result(self):
-        pass
+        for player in self.players:
+            if player not in self.finished:
+                self.finished.append(player)
+        print("Game results:")
+        for i, player in enumerate(self.finished):
+            if (idx := self.players.index(player)) == 0:
+                name: str = "HumanPlayer"
+            else:
+                name = f"Computer{idx}"
+            print(f"{i + 1}. {name}")
 
-    def render_game_info(self) -> None:
+    def _render_game_info(self) -> None:
         """
         Renders the game information on the screen.
 
@@ -782,11 +816,11 @@ class Game:
         ]
         player: HumanPlayer = self.players[0]
         effects: list[Callable] = [
-            partial(self.take_cards, player=player, number=1),
-            partial(self.next_turn),
-            partial(self.draw_penalty, player=player),
-            partial(self.makao_out, player=player),
-            partial(self.makao, player=player),
+            partial(self._take_cards, player=player, number=1),
+            partial(self._next_turn),
+            partial(self._draw_penalty, player=player),
+            partial(self._makao_out, player=player),
+            partial(self._makao, player=player),
         ]
         inactive_color: tuple[int, int, int]
         hover_color: tuple[float, ...]
@@ -846,7 +880,7 @@ class Game:
 
         self.game_rects.update({"buttons": buttons_list})
 
-    def render_center_card(self) -> None:
+    def _render_center_card(self) -> None:
         """
         Renders current center card
         """
@@ -855,7 +889,7 @@ class Game:
         y: int = (self.window_height - self.card_height) // 2
         self.window.blit(card_image, (x, y))
 
-    def render_cards(
+    def _render_cards(
         self, player: Union[ComputerPlayer, HumanPlayer], all_visible: bool = False
     ) -> None:
         """
@@ -875,7 +909,7 @@ class Game:
 
         if not 0 <= position <= 3:
             raise WrongPosition(position)
-        if player.rank:
+        if player in self.finished:
             return
 
         card_width: int
@@ -1112,6 +1146,14 @@ class Game:
         return card_image
 
 
-if __name__ == "__main__":
-    game = Game(4)
+def main():
+    parser = argparse.ArgumentParser(description="Start a new game")
+    parser.add_argument("num_players", type=int, help="The number of players")
+    args = parser.parse_args()
+
+    game = Game(args.num_players)
     game.start()
+
+
+if __name__ == "__main__":
+    main()
