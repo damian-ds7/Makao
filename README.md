@@ -32,11 +32,9 @@ Each player is dealt five cards at the start of the game. The remaining cards fo
 The game continues until a player has no cards left. For more detailed rules, please refer to the [Polish Wikipedia page](https://pl.wikipedia.org/wiki/Makao_(gra_karciana)).
 
 ## Visuals
-<img src="./images/normal_board.png" width="450">
-
 <p float="left">
-  <img src="/path/to/normal_board.png" width="400" style="margin-right: 10px;" />
-  <img src="/path/to/mid_game.png" width="400" /> 
+  <img src="./images/normal_board.png" width="400" style="margin-right: 10px;" />
+  <img src="./images/mid_game.png" width="400" /> 
 </p>
 
 ## Install and run program
