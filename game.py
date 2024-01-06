@@ -210,10 +210,6 @@ class Game:
     def finished(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
         return self._finished
 
-    def _change_rank(self, decrement: bool = False) -> None:
-        multiplier: int = -1 if decrement else 1
-        self._current_rank += 1 * multiplier
-
     def _player_finish(self, player: Union[HumanPlayer, ComputerPlayer]) -> None:
         if self.players.index(player) == 0:
             self.sleep_time = 0
