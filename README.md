@@ -34,7 +34,7 @@ The game continues until a player has no cards left. For more detailed rules, pl
 ## Visuals
 Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
 
-## Installation
+## Install and run program
 1. Clone the repository: `git clone https://gitlab-stud.elka.pw.edu.pl/ddsouza/makao-projekt-pipr-damian-dsouza`
 2. Navigate to the project directory: `cd makao-projekt-pipr-damian-dsouza`
 3. Create a venv and activate it:
@@ -46,6 +46,7 @@ Depending on what you are making, it can be a good idea to include screenshots o
         - `python -m venv .venv`
         - `venv\Scripts\activate`
 4. Install the required packages: `pip install -r requirements.txt`
+5. Run the game: `python game.py [num_players]`
 
 ## Usage
 Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
