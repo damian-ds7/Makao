@@ -807,7 +807,7 @@ class Game:
             str(deck_len),
             "NEXT",
             "PENALTY",
-            "MAKAO \nAND OUT",
+            "AND OUT",
             "MAKAO!",
         ]
         player: HumanPlayer = self.players[0]
