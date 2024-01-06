@@ -30,11 +30,11 @@ class HumanPlayer:
 
     @property
     def finished(self) -> bool:
-        return self._rank
+        return self._finished
 
     @finished.setter
-    def finished(self, rank: int) -> None:
-        self._rank = rank
+    def finished(self, finished: bool) -> None:
+        self._finished = finished
 
     @property
     def drew_card(self) -> bool:

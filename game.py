@@ -574,7 +574,7 @@ class Game:
     def _computer_play_cards(self, player: ComputerPlayer) -> None:
         prev_len: int = len(self._get_previous_player(player).hand)
         next_len: int = len(self._get_next_player(player).hand)
-        game_state: dict[str, Union[list, Card]] = {
+        game_state: dict[str, Any] = {
             "center": self.center_card,
             "prev_len": prev_len,
             "next_len": next_len
@@ -740,7 +740,7 @@ class Game:
         pg.quit()
         self.display_result()
 
-    def display_result(self):
+    def display_result(self) -> None:
         for player in self.players:
             if player not in self.finished:
                 self.finished.append(player)
