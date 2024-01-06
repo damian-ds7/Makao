@@ -4,7 +4,7 @@
 
 - [Name](#name)
 - [Description](#description)
-- [Installation](#installation)
+- [Installation](#Install and run program)
 - [Usage](#usage)
 - [License](#license)
 
