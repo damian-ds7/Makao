@@ -180,7 +180,10 @@ class Game:
         # self._finished_move: bool = False
         self.played_card: Optional[Card] = None
         self._current_rank: int = 1
+        self._init_pygame()
+        self._create_buttons()
 
+    def _init_pygame(self) -> None:
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
         pg.init()
         pg.display.set_caption("Macao")
@@ -197,7 +200,6 @@ class Game:
         self._window: Surface = pg.display.set_mode(
             (self._window_width, self._window_height)
         )
-        self.render_buttons()
 
     @property
     def players(self) -> list[Union[HumanPlayer, ComputerPlayer]]:
