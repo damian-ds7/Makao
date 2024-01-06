@@ -33,8 +33,8 @@ The game continues until a player has no cards left. For more detailed rules, pl
 
 ## Visuals
 <p float="left">
-  <img src="./images/normal_board.png" width="400" style="margin-right: 10px;" />
-  <img src="./images/mid_game.png" width="400" /> 
+  <img src="./images/normal_board.png" width="500" style="margin-right: 10px;" />
+  <img src="./images/mid_game.png" width="500" /> 
 </p>
 
 ## Install and run program
