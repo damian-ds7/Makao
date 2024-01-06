@@ -403,8 +403,13 @@ class Game:
             pass
 
         if self.game_params.get("jack", None):
-            self.game_params.update({"value": (items[selected_index], 4)})
             self.game_params.pop("jack")
+            if items[selected_index] == "None":
+                if "jack" in self.game_params:
+                    self.game_params.pop("jack")
+                return
+            self.game_params.update({"value": (items[selected_index], 4)})
+
         else:
             self.game_params.update({"suit": (items[selected_index], 1)})
             self.game_params.pop("ace")
@@ -502,7 +507,7 @@ class Game:
         jack: bool = self.game_params.get("jack", False)
         ace: bool = self.game_params.get("ace", False)
         if jack or ace:
-            items: list[str] = SUITS if ace else VALUES[3:9]
+            items: list[str] = SUITS if ace else VALUES[3:9] + ["None"]
             self.selection(items)
 
         if self.get_penalty and not player.cards_played:
