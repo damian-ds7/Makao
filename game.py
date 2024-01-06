@@ -1159,11 +1159,11 @@ class Game:
 
 
 def main():
-    # parser = argparse.ArgumentParser(description="Start a new game")
-    # parser.add_argument("num_players", type=int, help="The number of players")
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser(description="Start a new game")
+    parser.add_argument("num_players", type=int, help="The number of players")
+    args = parser.parse_args()
 
-    game = Game(4)
+    game = Game(args.num_players)
     game.start()
 
 
