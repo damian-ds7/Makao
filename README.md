@@ -32,7 +32,7 @@ Each player is dealt five cards at the start of the game. The remaining cards fo
 The game continues until a player has no cards left. For more detailed rules, please refer to the [Polish Wikipedia page](https://pl.wikipedia.org/wiki/Makao_(gra_karciana)).
 
 ## Visuals
-![Game beg](./images/normal_board.png)
+<img src="./images/normal_board.png" width="200">
 
 ## Install and run program
 1. Clone the repository: `git clone https://gitlab-stud.elka.pw.edu.pl/ddsouza/makao-projekt-pipr-damian-dsouza`
