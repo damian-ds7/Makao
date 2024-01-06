@@ -1,6 +1,7 @@
-from typing import Generator, Optional, Union, Any
+from typing import Generator, Any
 from deck import Deck
 from card import Card
+from random import randint
 
 
 class PlayNotAllowedError(Exception):
@@ -14,7 +15,7 @@ class HumanPlayer:
         Class representing human player with a deck of cards rank and makao status
         """
         self._hand: list[Card] = []
-        self._rank: Optional[int] = None
+        self.finished: bool = False
         self._makao_status: bool = False
         self._cards_played: int = 0
         self._drew_card: bool = False
@@ -28,11 +29,11 @@ class HumanPlayer:
         return self._makao_status
 
     @property
-    def rank(self) -> Optional[int]:
+    def finished(self) -> bool:
         return self._rank
 
-    @rank.setter
-    def rank(self, rank: int) -> None:
+    @finished.setter
+    def finished(self, rank: int) -> None:
         self._rank = rank
 
     @property
@@ -127,7 +128,6 @@ class HumanPlayer:
             f"{human_computer}",
             f"  Deck: {cards}",
             f"  Makao: {self.makao_status}",
-            f"  Rank: {self.rank}",
         )
 
     def __str__(self) -> str:
@@ -146,19 +146,46 @@ class ComputerPlayer(HumanPlayer):
     def player_info(self, human_computer: str = "Computer player") -> tuple:
         return super().player_info(human_computer)
 
+    def selection(self, items: list[str]) -> int:
+        if len(items) == 4:
+            return self.suit_select()
+        else:
+            return self.val_select(items)
+
+    def suit_select(self) -> int:
+        """
+        Randomly selects a suit for the next player
+
+        :return: The index of the selected suit
+        """
+        return randint(0, 3)
+
+    def val_select(self, items: list[str]) -> int:
+        """
+        Calculates the value to select based on the player's hand
+
+        :param items: list of values
+        :return: Index of selected value or index of None in selection menu
+        """
+        values: list[str] = items[:-1]
+        hand_values: list[str] = [card.value for card in self.hand]
+        num_of_occurrences: list[int] = [hand_values.count(value) for value in values]
+        return len(values) if not max(num_of_occurrences) else max(num_of_occurrences)
+
     def find_best_plays(self, **kwargs) -> list[Card]:
         """
-        Finds the best plays based on the given game parameters and player data.
+        Finds the best plays based on the given game parameters and player data
 
-        :param kwargs: Additional keyword arguments for game parameters.
+        :key players: A list of players in the game
+        :key center_card: Current center card
+        :key prev_len: Length of the previous player's deck
+        :key nexy_len: Length of the next player's deck
 
-        :returns: Moves for computer to play.
+        :return: Moves for computer to play.
         """
         game_params: dict[str, Any] = kwargs
-        players: list[Union[HumanPlayer, "ComputerPlayer"]] = kwargs.pop("players", [])
-        self.previous_len: int
-        self.next_len: int
-        self.previous_len, self.next_len = self._get_player_data(players)
+        self.previous_len: int = kwargs.pop("prev_len")
+        self.next_len: int = kwargs.pop("next_len", 0)
         possible_first_moves: list[Card] = self._get_possible_moves(**game_params)
         possible_movesets: list[tuple[str, list[Card]]] = self._get_movesets(
             possible_first_moves, **kwargs
@@ -176,39 +203,6 @@ class ComputerPlayer(HumanPlayer):
             )[1]
         )
         return best_moves
-
-    def _get_player_data(
-        self, players: list[Union[HumanPlayer, "ComputerPlayer"]]
-    ) -> tuple[int, int]:
-        """
-        Get the length of the previous and next player's hand
-
-        :param players: The list of players
-        :return: A tuple containing the length of the previous player's hand and the next player's hand
-        """
-        player_index: int = players.index(self)
-        previous_player: Optional[Union[HumanPlayer, "ComputerPlayer"]] = None
-        next_player: Optional[Union[HumanPlayer, "ComputerPlayer"]] = None
-        for i in range(1, len(players) // 2 + 1):
-            if not previous_player:
-                previous_player = players[player_index - i]
-                previous_player = (
-                    previous_player
-                    if not (previous_player.rank or previous_player.skip_turns)
-                    else None
-                )
-            if not next_player:
-                next_player = players[player_index + i]
-                next_player = (
-                    next_player
-                    if not (next_player.rank or next_player.skip_turns)
-                    else None
-                )
-
-        previous_len: int = len(previous_player.hand)
-        next_len: int = len(next_player.hand)
-
-        return previous_len, next_len
 
     @staticmethod
     def _get_move_descriptor(moveset: list[Card]) -> str:
@@ -249,7 +243,7 @@ class ComputerPlayer(HumanPlayer):
         """
         Returns a list of possible first moves for the player
 
-        :param center_card: center card
+        :key center_card: center card
         :return: list of possible moves
         """
         center_card: Card = kwargs.get("center", None)
@@ -265,7 +259,6 @@ class ComputerPlayer(HumanPlayer):
         Simulates the parameters for a game based on the first move card
 
         :param first_move: The first move card
-        :param kwargs: Additional keyword arguments for customizing the game parameters
         :return: A dictionary containing the simulated game parameters
         """
         game_params: dict[str, Any] = {}
@@ -282,12 +275,28 @@ class ComputerPlayer(HumanPlayer):
         elif val == "jack":
             game_params.update({"jack": True})
 
+        if "king" in kwargs:
+            game_params.update({"king": True})
         if "value" in kwargs:
             game_params.update({"value": kwargs["value"]})
         if "suit" in kwargs:
             game_params.update({"suit": kwargs["suit"]})
 
         return game_params
+
+    @staticmethod
+    def check_card_play_conditions(
+        current_card: Card, card: Card, moveset: list[Card], **kwargs
+    ) -> bool:
+        jack_ace_duplicate: bool = False
+        if "jack" in kwargs or "ace" in kwargs and card.value in ["jack", "ace"]:
+            jack_ace_duplicate = True
+        return (
+            card not in moveset
+            and card != current_card
+            and current_card.can_play(card)
+            and not jack_ace_duplicate
+        )
 
     def _generate_permutations(
         self, moveset: list[Card] = [], **kwargs
@@ -303,15 +312,15 @@ class ComputerPlayer(HumanPlayer):
         params: dict[str, Any] = self._simulate_params(current_card, **kwargs)
         cards = list(
             filter(
-                lambda card: card != current_card
-                and card not in moveset
-                and current_card.can_play(card, **params),
+                lambda card: self.check_card_play_conditions(
+                    current_card, card, moveset, **params
+                ),
                 self.hand,
             )
         )
         if not cards or (
             current_card.value == "king" and current_card.suit in ["spades", "hearts"]
-        ):
+        ) or len(moveset) == 7:
             yield moveset
         else:
             for i, next_card in enumerate(cards):
@@ -320,7 +329,9 @@ class ComputerPlayer(HumanPlayer):
                         moveset + [next_card], **kwargs
                     )
 
-    def _get_movesets(self, first_moves: list[Card], **kwargs) -> list[tuple[str, list[Card]]]:
+    def _get_movesets(
+        self, first_moves: list[Card], **kwargs
+    ) -> list[tuple[str, list[Card]]]:
         """
         Get the possible movesets based on the first moves and other optional arguments.
 
@@ -366,7 +377,7 @@ class ComputerPlayer(HumanPlayer):
             "normal": 5,
         }
 
-        if self.previous_len > self.next_len:
+        if self.previous_len < self.next_len:
             (
                 movesets_importance["king_next_draw"],
                 movesets_importance["king_prev_draw"],
