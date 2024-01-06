@@ -67,10 +67,10 @@ The game continues until a player has no cards left. For more detailed rules, pl
 
 ## What was achieved
 
--Working game for 2-4 players, with a simple AI for computer players. The game has a simple UI that allows the user to play the game and see the current state of the game.
--Ability to signal "Makao!" and "Makao and out!", computer can signal stop makao which can make user draw 5 cards if makao wasn't signaled
--Thoroughout the game user can see the current state of the game: center card, number of cards in deck cards are drawn from, number of cards in each player's hand, in terminal there is also move history (what card was in the center, played card and player that played it)
--After game is over list with every player's rank is shown.
+- Working game for 2-4 players, with a simple AI for computer players. The game has a simple UI that allows the user to play the game and see the current state of the game.
+- Ability to signal "Makao!" and "Makao and out!", computer can signal stop makao which can make user draw 5 cards if makao wasn't signaled
+- Thoroughout the game user can see the current state of the game: center card, number of cards in deck cards are drawn from, number of cards in each player's hand, in terminal there is also move history (what card was in the center, played card and player that played it)
+- After game is over list with every player's rank is shown.
 
 ## Things to improve
 
