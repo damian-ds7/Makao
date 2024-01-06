@@ -87,6 +87,8 @@ class Card:
         req_value: tuple[str, int] = kwargs.get("value", None)
         four_played: int = kwargs.get("skip", None)
         king_played: bool = kwargs.get("king", None)
+        jack_played: bool = kwargs.get("jack", None)
+        ace_played: bool = kwargs.get("ace", None)
         penalty: int = kwargs.get("penalty", None)
 
         if self == played_card:
@@ -94,8 +96,25 @@ class Card:
 
         conditions = [
             (four_played, lambda: played_card.value == "4"),
-            (req_value, lambda: req_value[0] == played_card.value or played_card.value == "jack"),
-            (req_suit, lambda: req_suit[0] == played_card.suit or played_card.value == "ace"),
+            (
+                req_value,
+                lambda: req_value[0] == played_card.value
+                or played_card.value == "jack",
+            ),
+            (
+                req_suit,
+                lambda: req_suit[0] == played_card.suit or played_card.value == "ace",
+            ),
+            (
+                jack_played,
+                lambda: self.check_compatible(played_card)
+                and played_card.value not in ["2", "3", "4", "ace", "king"],
+            ),
+            (
+                ace_played,
+                lambda: self.check_compatible(played_card)
+                and played_card.value not in ["2", "3", "4", "jack", "king"],
+            ),
             (
                 penalty and not king_played,
                 lambda: self.check_compatible(played_card)
