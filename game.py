@@ -653,9 +653,28 @@ class Game:
         self._window = pg.display.set_mode(
             (self.window_width, self.window_height), pg.RESIZABLE
         )
-        self.render_buttons()
+        self._create_buttons()
 
-    def render_game(self, events: list[Event]) -> None:
+    def _handle_buttons(self, events: list[Event]):
+        """
+        Handles the drawing of buttons and updates them based on current events like hover or click.
+
+        :param events: A list of events to process.
+        :type events: list[Event]
+        :return: None
+        """
+
+        for button in self.game_rects.get("buttons", []):
+            try:
+                new_len = str(
+                    len(self.discarded_deck) if not self.deck else len(self.deck)
+                )
+                button.draw(new_len=new_len)
+            except TypeError:
+                button.draw()
+        pgw.update(events)
+
+    def _render_game(self, events: list[Event]) -> None:
         """
         Render the game on the screen.
 
@@ -670,15 +689,7 @@ class Game:
         self.render_game_info()
         for player in self.players:
             self.render_cards(player, all_visible=True)
-        for button in self.game_rects.get("buttons", []):
-            try:
-                new_len = str(
-                    len(self.discarded_deck) if not self.deck else len(self.deck)
-                )
-                button.draw(new_len=new_len)
-            except TypeError:
-                button.draw()
-        pgw.update(events)
+        self._handle_buttons(events)
         pg.display.update()
 
     def start(self) -> None:
@@ -701,7 +712,7 @@ class Game:
                     self.handle_video_resize_event(event)
             if self.current_player_index:
                 self.play_turn()
-            self.render_game(events)
+            self._render_game(events)
             if self.current_rank == 3:
                 self.display_result
                 self.handle_quit_event()
@@ -747,9 +758,9 @@ class Game:
                 self.window.blit(text, (x, y))
                 y += text.get_height() + padding
 
-    def render_buttons(self) -> None:
+    def _create_buttons(self) -> None:
         """
-        Renders clickable buttons: Deck to draw cards, Macao! and Next Buttons
+        Create clickable buttons: Deck to draw cards, Macao! and Next Buttons
         Can only be used once at the start of the game, And buttons can be
         redrawn individually in other methods
         """
