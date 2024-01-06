@@ -4,9 +4,10 @@
 
 - [Name](#name)
 - [Description](#description)
-- [Installation](#Install and run program)
-- [Usage](#usage)
-- [License](#license)
+- [Installation](#Install-and-run-program)
+- [Code description](#Code-description)
+- [What was achieved](#What-was-achieved)
+- [Things to improve](#Things-to-improve)
 
 ## Name
 Macao
