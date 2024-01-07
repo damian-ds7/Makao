@@ -279,8 +279,10 @@ class ComputerPlayer(HumanPlayer):
             new_params.update({"king": True})
         if "value" in game_params:
             new_params.update({"value": game_params["value"]})
-        if "suit" in game_params:
-            new_params.update({"suit": game_params["suit"]})
+        if "ace" in game_params:
+            new_params.update({"ace": True})
+        if "jack" in game_params:
+            new_params.update({"jack": True})
 
         return new_params
 
@@ -289,12 +291,11 @@ class ComputerPlayer(HumanPlayer):
         current_card: Card, card: Card, moveset: list[Card], **game_params
     ) -> bool:
         jack_ace_duplicate: bool = False
-        if "jack" in game_params or "ace" in game_params and card.value in ["jack", "ace"]:
+        if ("jack" in game_params or "ace" in game_params) and card.value in ["jack", "ace"]:
             jack_ace_duplicate = True
         return (
             card not in moveset
-            and card != current_card
-            and current_card.can_play(card)
+            and current_card.can_play(card, **game_params)
             and not jack_ace_duplicate
         )
 
@@ -311,23 +312,16 @@ class ComputerPlayer(HumanPlayer):
         current_card: Card = moveset[-1]
         params: dict[str, Any] = self._simulate_params(current_card, **game_params)
         cards = list(
-            filter(
-                lambda card: self.check_card_play_conditions(
-                    current_card, card, moveset, **params
-                ),
-                self.hand,
-            )
+            filter(lambda card: self.check_card_play_conditions(current_card, card, moveset, **params), self.hand)
         )
+
         if not cards or (
             current_card.value == "king" and current_card.suit in ["spades", "hearts"]
         ) or len(moveset) == 7:
             yield moveset
         else:
             for i, next_card in enumerate(cards):
-                if current_card.can_play(next_card):
-                    yield from self._generate_permutations(
-                        moveset + [next_card], **game_params
-                    )
+                yield from self._generate_permutations(moveset + [next_card], **params)
 
     def _get_movesets(
         self, first_moves: list[Card], **game_params
