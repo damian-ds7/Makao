@@ -119,7 +119,7 @@ class Card:
             (
                 jack_played,
                 lambda: self.check_compatible(played_card)
-                and played_card.value not in ["2", "3", "4", "jack"]
+                and played_card.value not in ["2", "3", "4", "ace"]
                 and not (played_card.value == "king" and played_card.suit in ["spades", "hearts"])
             ),
             (
