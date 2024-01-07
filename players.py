@@ -177,15 +177,15 @@ class ComputerPlayer(HumanPlayer):
         Finds the best plays based on the given game parameters and player data
 
         :key players: A list of players in the game
-        :key center_card: Current center card
+        :key center: Current center card
         :key prev_len: Length of the previous player's deck
-        :key nexy_len: Length of the next player's deck
+        :key next_len: Length of the next player's deck
 
         :return: Moves for computer to play.
         """
         game_params: dict[str, Any] = kwargs
-        self.previous_len: int = kwargs.pop("prev_len")
-        self.next_len: int = kwargs.pop("next_len", 0)
+        self.previous_len: int = kwargs.get("prev_len", 0)
+        self.next_len: int = kwargs.get("next_len", 0)
         possible_first_moves: list[Card] = self._get_possible_moves(**game_params)
         possible_movesets: list[tuple[str, list[Card]]] = self._get_movesets(
             possible_first_moves, **kwargs
