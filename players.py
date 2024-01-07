@@ -172,7 +172,7 @@ class ComputerPlayer(HumanPlayer):
         num_of_occurrences: list[int] = [hand_values.count(value) for value in values]
         return len(values) if not max(num_of_occurrences) else max(num_of_occurrences)
 
-    def find_best_plays(self, **kwargs) -> list[Card]:
+    def find_best_plays(self, **game_state) -> list[Card]:
         """
         Finds the best plays based on the given game parameters and player data
 
@@ -183,12 +183,12 @@ class ComputerPlayer(HumanPlayer):
 
         :return: Moves for computer to play.
         """
-        game_params: dict[str, Any] = kwargs
-        self.previous_len: int = kwargs.get("prev_len", 0)
-        self.next_len: int = kwargs.get("next_len", 0)
+        game_params: dict[str, Any] = game_state
+        self.previous_len: int = game_state.get("prev_len", 0)
+        self.next_len: int = game_state.get("next_len", 0)
         possible_first_moves: list[Card] = self._get_possible_moves(**game_params)
         possible_movesets: list[tuple[str, list[Card]]] = self._get_movesets(
-            possible_first_moves, **kwargs
+            possible_first_moves, **game_state
         )
 
         if len(possible_movesets) == 1 and possible_movesets[0][0] == "end":
@@ -239,57 +239,57 @@ class ComputerPlayer(HumanPlayer):
             descriptor = descriptors[value]
         return descriptor
 
-    def _get_possible_moves(self, **kwargs) -> list[Card]:
+    def _get_possible_moves(self, **game_params) -> list[Card]:
         """
         Returns a list of possible first moves for the player
 
         :key center_card: center card
         :return: list of possible moves
         """
-        center_card: Card = kwargs.get("center", None)
+        center_card: Card = game_params.get("center", None)
         possible_moves: list[Card] = []
         for card in self.hand:
-            if center_card.can_play(card, **kwargs):
+            if center_card.can_play(card, **game_params):
                 possible_moves.append(card)
         return possible_moves
 
     @staticmethod
-    def _simulate_params(first_move: Card, **kwargs) -> dict[str, Any]:
+    def _simulate_params(first_move: Card, **game_params) -> dict[str, Any]:
         """
         Simulates the parameters for a game based on the first move card
 
         :param first_move: The first move card
         :return: A dictionary containing the simulated game parameters
         """
-        game_params: dict[str, Any] = {}
+        new_params: dict[str, Any] = {}
         val: str = first_move.value
         suit: str = first_move.suit
         if val in ["2", "3"]:
-            game_params.update({"penalty": int(first_move.value)})
+            new_params.update({"penalty": int(first_move.value)})
         elif val == "4":
-            game_params.update({"skip": 1})
+            new_params.update({"skip": 1})
         elif val == "king" and suit in ["spades", "hearts"]:
-            game_params.update({"king": True})
+            new_params.update({"king": True})
         elif val == "ace":
-            game_params.update({"ace": True})
+            new_params.update({"ace": True})
         elif val == "jack":
-            game_params.update({"jack": True})
+            new_params.update({"jack": True})
 
-        if "king" in kwargs:
-            game_params.update({"king": True})
-        if "value" in kwargs:
-            game_params.update({"value": kwargs["value"]})
-        if "suit" in kwargs:
-            game_params.update({"suit": kwargs["suit"]})
+        if "king" in game_params:
+            new_params.update({"king": True})
+        if "value" in game_params:
+            new_params.update({"value": game_params["value"]})
+        if "suit" in game_params:
+            new_params.update({"suit": game_params["suit"]})
 
-        return game_params
+        return new_params
 
     @staticmethod
     def check_card_play_conditions(
-        current_card: Card, card: Card, moveset: list[Card], **kwargs
+        current_card: Card, card: Card, moveset: list[Card], **game_params
     ) -> bool:
         jack_ace_duplicate: bool = False
-        if "jack" in kwargs or "ace" in kwargs and card.value in ["jack", "ace"]:
+        if "jack" in game_params or "ace" in game_params and card.value in ["jack", "ace"]:
             jack_ace_duplicate = True
         return (
             card not in moveset
@@ -299,17 +299,17 @@ class ComputerPlayer(HumanPlayer):
         )
 
     def _generate_permutations(
-        self, moveset: list[Card] = [], **kwargs
+        self, moveset: list[Card] = [], **game_params
     ) -> Generator[list[Card], None, None]:
         """
         Generates all possible permutations of movesets based on the current moveset and available cards.
 
         :param moveset: List of already added moves, last item is the last played card
-        :param **kwargs: Additional keyword arguments used to create simulated_params dict.
+        :param **game_params: Additional keyword arguments used to create simulated_params dict.
         :return: A generator that yields possible movesets
         """
         current_card: Card = moveset[-1]
-        params: dict[str, Any] = self._simulate_params(current_card, **kwargs)
+        params: dict[str, Any] = self._simulate_params(current_card, **game_params)
         cards = list(
             filter(
                 lambda card: self.check_card_play_conditions(
@@ -326,17 +326,17 @@ class ComputerPlayer(HumanPlayer):
             for i, next_card in enumerate(cards):
                 if current_card.can_play(next_card):
                     yield from self._generate_permutations(
-                        moveset + [next_card], **kwargs
+                        moveset + [next_card], **game_params
                     )
 
     def _get_movesets(
-        self, first_moves: list[Card], **kwargs
+        self, first_moves: list[Card], **game_params
     ) -> list[tuple[str, list[Card]]]:
         """
         Get the possible movesets based on the first moves and other optional arguments.
 
         :param first_moves: The list of first moves player can make
-        :param **kwargs: Optional keyword arguments passed to
+        :param **game_params: Optional keyword arguments passed to
                          _generate_permutations to simulate game_params
 
         :return: The list of possible movesets, where each moveset is represented as a tuple
@@ -346,7 +346,7 @@ class ComputerPlayer(HumanPlayer):
         possible_movesets: list[tuple[str, list[Card]]] = []
         for first_move in first_moves:
             moves: list[Card] = [first_move]
-            for permutation in self._generate_permutations(moves, **kwargs):
+            for permutation in self._generate_permutations(moves, **game_params):
                 if len(permutation) <= 4 and len(permutation) == len(self.hand):
                     return [("end", permutation)]
                 descriptor: str = self._get_move_descriptor(permutation)
