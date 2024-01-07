@@ -76,7 +76,7 @@ class Card:
     def get_image_name(self) -> str:
         return f"images/{self.suit}_{self.value}.png"
 
-    def can_play(self, played_card: "Card", **kwargs) -> bool:
+    def can_play(self, played_card: "Card", **game_params) -> bool:
         """
         Checks if the card selected by the player can be played
 
@@ -94,13 +94,13 @@ class Card:
 
         :return: True if the selected card can be played, False otherwise
         """
-        req_suit: tuple[str, int] = kwargs.get("suit", None)
-        req_value: tuple[str, int] = kwargs.get("value", None)
-        four_played: int = kwargs.get("skip", None)
-        king_played: bool = kwargs.get("king", None)
-        jack_played: bool = kwargs.get("jack", None)
-        ace_played: bool = kwargs.get("ace", None)
-        penalty: int = kwargs.get("penalty", None)
+        req_suit: tuple[str, int] = game_params.get("suit", None)
+        req_value: tuple[str, int] = game_params.get("value", None)
+        four_played: int = game_params.get("skip", None)
+        king_played: bool = game_params.get("king", None)
+        jack_played: bool = game_params.get("jack", None)
+        ace_played: bool = game_params.get("ace", None)
+        penalty: int = game_params.get("penalty", None)
 
         if self == played_card:
             raise CardPlayedOnItself(self)
