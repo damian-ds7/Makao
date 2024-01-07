@@ -610,9 +610,9 @@ class Game:
             return
         for played_card in computer_moves:
             self.played_card = played_card
+            self._play_card(self.played_card, player)
             if len(player.hand) == 1:
                 self._makao(player)
-            self._play_card(self.played_card, player)
             sleep(self.sleep_time)
 
     def _play_turn(self) -> None:
