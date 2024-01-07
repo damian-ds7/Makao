@@ -24,7 +24,7 @@ def test_empty_deck():
 
 
 def test_full_deck():
-    deck = Deck(empty=True)
+    deck = Deck()
     assert len(deck) == 52
 
 

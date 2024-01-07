@@ -183,7 +183,7 @@ def test_find_best_plays_king_played_2():
 def test_find_best_plays_king_played_3():
     player = ComputerPlayer()
     player._hand = [Card("3", "hearts"), Card("2", "hearts"), Card("7", "hearts")]
-    center = Card("king", "sapdes")
+    center = Card("king", "spades")
     params = {"center": center, "king": True, "penalty": 5}
     assert player.find_best_plays(**params) == []
 
