@@ -150,7 +150,7 @@ class SelectionMenu:
 class Game:
     # TODO:
     # - (Optional) Stop Macao button
-    def __init__(self, player_number: int) -> None:
+    def __init__(self, player_number: int, render: bool = True) -> None:
         """
         Represents a game of Makao.
 
@@ -180,7 +180,9 @@ class Game:
         self._game_params: dict[str, Any] = {}
         self.played_card: Optional[Card] = None
         self._finished: list[Union[HumanPlayer, ComputerPlayer]] = []
-        self._init_pygame()
+
+        if render:
+            self._init_pygame()
 
     def _init_pygame(self) -> None:
         self._game_rects: dict[str, list] = {"human_cards": [], "buttons": []}
