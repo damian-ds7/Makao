@@ -291,6 +291,8 @@ class ComputerPlayer(HumanPlayer):
         current_card: Card, card: Card, moveset: list[Card], **game_params
     ) -> bool:
         jack_ace_duplicate: bool = False
+        if "king" in game_params:
+            return False
         if ("jack" in game_params or "ace" in game_params) and card.value in ["jack", "ace"]:
             jack_ace_duplicate = True
         return (
@@ -383,6 +385,7 @@ class ComputerPlayer(HumanPlayer):
         if self.previous_len <= len(self.hand):
             movesets_importance["skip"] = movesets_importance["next_draw"]
 
+        moveset_len = moveset_len if moveset_len > 1 else 0
         movesets_importance[descriptor] -= moveset_len
 
         return movesets_importance[descriptor]
