@@ -1,4 +1,4 @@
-from typing import Generator, Any
+from typing import Generator, Any, Optional
 from deck import Deck
 from card import Card
 from random import randint
@@ -183,10 +183,10 @@ class ComputerPlayer(HumanPlayer):
 
         :return: Moves for computer to play.
         """
-        game_params: dict[str, Any] = game_state
+
         self.previous_len: int = game_state.get("prev_len", 0)
         self.next_len: int = game_state.get("next_len", 0)
-        possible_first_moves: list[Card] = self._get_possible_moves(**game_params)
+        possible_first_moves: list[Card] = self._get_possible_moves(**game_state)
         possible_movesets: list[tuple[str, list[Card]]] = self._get_movesets(
             possible_first_moves, **game_state
         )
@@ -223,20 +223,18 @@ class ComputerPlayer(HumanPlayer):
             "spades": "king_prev_draw",
             "hearts": "king_next_draw",
         }
-        card = moveset[-1]
-        val: str = card.value
-        suit: str = card.suit
-        descriptor = (
-            descriptors.get(val, "normal")
-            if val != "king"
-            else king_descriptors.get(suit, "normal")
-        )
+        card_vals: list[str] = [card.value for card in moveset]
+        descriptor: Optional[str] = None
+        for i, val in enumerate(card_vals):
+            if val == "king":
+                descriptor = king_descriptors.get(moveset[i].suit, None)
+            descriptor = descriptors.get(val, None) if not descriptor else descriptor
+            if descriptor:
+                break
 
-        value = next(
-            (card.value for card in moveset if card.value in ["jack", "ace"]), None
-        )
-        if descriptor == "normal" and value is not None:
-            descriptor = descriptors[value]
+        if not descriptor:
+            descriptor = "normal"
+
         return descriptor
 
     def _get_possible_moves(self, **game_params) -> list[Card]:
@@ -345,13 +343,11 @@ class ComputerPlayer(HumanPlayer):
             for permutation in self._generate_permutations(moves, **game_params):
                 if len(permutation) <= 4 and len(permutation) == len(self.hand):
                     return [("end", permutation)]
-                descriptor: str = self._get_move_descriptor(permutation)
-                if len(permutation) == len(self.hand) and len(permutation) > 4:
-                    possible_movesets.append(
-                        (descriptor, permutation[: len(permutation) - 1])
-                    )
-                else:
-                    possible_movesets.append((descriptor, permutation))
+                moveset = permutation
+                if len(moveset) == len(self.hand) and len(moveset) > 4:
+                    moveset = permutation[: len(moveset) - 1]
+                descriptor: str = self._get_move_descriptor(moveset)
+                possible_movesets.append((descriptor, moveset))
 
         return possible_movesets
 

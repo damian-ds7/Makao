@@ -30,7 +30,7 @@ def test_full_deck():
 
 def test_shuffle(monkeypatch):
     def mock_shuffle_deck(self):
-        self._deck.reverse()
+        self.deck.reverse()
 
     monkeypatch.setattr(Deck, "shuffle_deck", mock_shuffle_deck)
 
