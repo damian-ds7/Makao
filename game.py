@@ -355,7 +355,7 @@ class Game:
         self._take_cards(player, draw)
         player.penalty = False
 
-    def _king_played(self, **kwargs) -> None:
+    def _king_played(self, previous: bool = False) -> None:
         """
         Updates the game state when a king card is played.
 
@@ -363,7 +363,6 @@ class Game:
 
         :return: None
         """
-        previous: bool = kwargs.get("previous", None)
         player = self.get_current_player()
         self.game_params.update({"king": True})
         self._increase_penalty(5)
