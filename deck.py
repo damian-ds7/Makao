@@ -31,7 +31,7 @@ class Deck:
             else [Card(value, suit) for value in VALUES for suit in SUITS]
         )
         if shuffle:
-            self.shuffle()
+            self.shuffle_deck()
 
     @property
     def deck(self) -> list[Card]:
@@ -45,7 +45,7 @@ class Deck:
             raise CardAlreadyInDeckError(card)
         self.deck.append(card)
 
-    def shuffle(self) -> None:
+    def shuffle_deck(self) -> None:
         shuffle(self.deck)
 
     def deal(self) -> Card:
