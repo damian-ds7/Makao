@@ -475,7 +475,7 @@ class Game:
         elif len(previous_player.hand) == 0:
             self._check_if_finished(previous_player)
 
-    def _update_req_params(self) -> None:
+    def _update_val_req_param(self) -> None:
         """
         Update the required parameters for the game.
 
@@ -485,27 +485,35 @@ class Game:
 
         :return: None
         """
-        reqs: list[Optional[tuple[str, int]]] = [
-            self.game_params.get("suit", None),
-            self.game_params.get("value", None),
-        ]
-        for req in reqs:
-            if req:
-                turns_left: int = req[1]
-                turns_left -= 1
-                req = (req[0], turns_left)
-                key = "suit" if req[0] in SUITS else "value"
-                if not turns_left:
-                    self.game_params.pop(key)
-                else:
-                    self.game_params.update({key: req})
+        req: Optional[tuple[str, int]] = self.game_params.get("value", None)
+        if req:
+            turns_left: int = req[1]
+            turns_left -= 1
+            req = (req[0], turns_left)
+            key = "value"
+            if not turns_left:
+                self.game_params.pop(key)
+            else:
+                self.game_params.update({key: req})
+
+    def _update_suit_req_param(self) -> None:
+        req: Optional[tuple[str, int]] = self.game_params.get("suit", None)
+        if req:
+            moves_left: int = req[1]
+            moves_left -= 1
+            req = (req[0], moves_left)
+            key = "suit"
+            if not moves_left:
+                self.game_params.pop(key)
+            else:
+                self.game_params.update({key: req})
 
     def _next_turn(self, backwards: bool = False) -> None:
         player: Union[HumanPlayer, ComputerPlayer] = self.get_current_player()
         # if self.penalty_draw:
         #     self.draw_penalty(player)
         # self._check_if_finished(player)
-        self._update_req_params()
+        self._update_val_req_param()
         jack: bool = self.game_params.get("jack", False)
         ace: bool = self.game_params.get("ace", False)
         if jack or ace:
@@ -567,6 +575,7 @@ class Game:
                 self._center_card = played_card
                 played_card.play_effect(self)
                 self._render_center_card()
+                self._update_suit_req_param()
         except PlayNotAllowedError:
             return
 
