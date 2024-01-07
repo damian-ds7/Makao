@@ -438,7 +438,7 @@ class Game:
         except DeckAlreadyEmptyError:
             if not self.discarded_deck:
                 return
-            self.discarded_deck.shuffle()
+            self.discarded_deck.shuffle_deck()
             self._deck = self.discarded_deck
             self._discarded_deck = Deck(empty=True)
             while number != 0:
